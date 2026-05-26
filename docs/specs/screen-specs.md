@@ -1,121 +1,104 @@
 # Screen Specifications
 
-## Main App Shell
+## Activity Structure
+
+| Activity | Role |
+| --- | --- |
+| `MainActivity` | App shell: ViewPager2, BottomNavigationView, DrawerLayout |
+| `ShareActivity` | Receives external `ACTION_SEND` share intent |
+| `DetailActivity` | Image detail: OCR text, tags, memo editor, YouTube deep-link |
+
+Intent flow:
+
+- `ShareActivity` → `MainActivity` (one-way; triggers import pipeline)
+- `MainActivity` ↔ `DetailActivity` (two-way; memo edit result returned)
+
+---
+
+## Main App Shell (MainActivity)
 
 ### Purpose
 
-Provide swipe-based access to core SnapMind features with `ViewPager2` and direct tab access with `BottomNavigationView`.
+Provide tab-based access to core SnapMind features with `ViewPager2` and `BottomNavigationView`, plus a right-side `DrawerLayout` for utility actions.
 
 ### UI Elements
 
 - `ViewPager2` occupying the main content area.
-- `BottomNavigationView` fixed to the bottom of the screen.
-- `DrawerLayout` available on the Memory page for category/tag quick filters.
-- Bottom navigation items:
-  - Memory
-  - Search
-  - Tags
-  - Memo
-  - Settings
-- Child feature pages rendered inside pager pages.
+- `BottomNavigationView` fixed to the bottom of the screen (4 tabs).
+- `DrawerLayout` on the right side, opened from toolbar menu icon.
+- **Search button** at the top-right of the home (홈) tab toolbar.
+- **FAB (+)** at the bottom-right for uploading a new image.
+
+### Bottom Navigation Tabs (4)
+
+| Index | Tab | Purpose |
+| ---: | --- | --- |
+| 0 | 홈 | Saved screenshots/photos grid |
+| 1 | 즐겨찾기 | Favorited memories |
+| 2 | 태그별 사진 | Browse photos by tag |
+| 3 | 설정 | App settings |
 
 ### Behavior
 
 - Swiping `ViewPager2` changes the selected bottom navigation item.
 - Tapping a bottom navigation item changes `ViewPager2.currentItem`.
 - Selected page is restored after configuration changes.
-- Memory detail and import preview are opened above the main shell, not as bottom nav tabs.
-- Horizontal child gestures must not make pager navigation unusable.
-- Left-edge swipe on the Memory page opens the filter drawer.
-- Non-edge horizontal swipe changes the `ViewPager2` page.
-
-### State
-
-- Default selected page: Memory.
-- Selected page restored.
-- Child page loading/error/content states remain owned by each page.
+- Detail screen (`DetailActivity`) is launched above the main shell.
 
 ### Acceptance Criteria
 
-- [ ] User can swipe between main features.
-- [ ] User can tap bottom navigation to jump to each main feature.
+- [ ] User can swipe between 4 main tabs.
+- [ ] User can tap bottom navigation to jump to each tab.
 - [ ] Bottom navigation selection always matches the visible pager page.
-- [ ] Selected page survives rotation.
-- [ ] Back from detail returns to the originating main page.
-- [ ] Left-edge swipe opens drawer without breaking pager swipes.
+- [ ] Selected tab survives rotation.
+- [ ] Back from `DetailActivity` returns to the originating tab.
+- [ ] Search button on home tab opens search screen.
+- [ ] FAB (+) opens image import flow.
 
-## Drawer Filter Menu
+---
+
+## Right-Side Drawer Menu (DrawerLayout)
 
 ### Purpose
 
-Provide fast category/tag filtering from the Memory page, similar to folder navigation in email apps.
+Provide utility actions and quick navigation from a right-side sliding panel.
 
 ### UI Elements
 
-- Drawer header with current memory count or app label.
-- Quick filter items:
-  - All
-  - Unprocessed
-  - Pinned
-  - Archived
-- Category list:
-  - Shopping
-  - Code
-  - Map
-  - Receipt
-  - Document
-  - Chat
-  - Unknown
-- Popular tag list.
-- Tag management actions:
-  - Create tag
-  - Manage tags
-- Optional count badge per category/tag.
+- Drawer opened from toolbar menu icon (right side).
+- Menu items:
+  - 🗑 **휴지통** — view and restore deleted memories
+  - 📄 **PDF로 추출하기** — export selected memories as PDF
+  - 👨‍💻 **개발자 소개** — developer info page
+  - 🏷 **인기 태그 TOP 3 바로가기** — shortcut to the 3 most-used tags
 
 ### Behavior
 
-- Opens from left edge swipe on Memory page.
-- Opens from toolbar menu button.
-- Tapping a category applies a category filter to the main Memory list.
-- Tapping a tag applies a tag filter to the main Memory list.
+- Opens by swiping from the right edge or tapping toolbar icon.
+- Tapping "인기 태그 TOP 3 바로가기" navigates to 태그별 사진 tab filtered by each top tag.
 - Drawer closes after selection.
-- Active filter appears as a chip above the Memory list.
-- Clear action removes the active drawer filter.
-- Tag management action opens tag create/edit/delete UI.
-
-### State
-
-- Loading drawer data.
-- Drawer content loaded.
-- Drawer data error with retry.
-- Active category selected.
-- Active tag selected.
 
 ### Acceptance Criteria
 
-- [ ] User can open drawer by swiping from the left edge.
-- [ ] User can open drawer from toolbar button.
-- [ ] Selecting `Code` filters the main list to `Code` screenshots/photos.
-- [ ] Selecting a popular tag filters the main list by that tag.
-- [ ] Active filter is visible and clearable.
-- [ ] User can enter tag management from the drawer.
+- [ ] User can open drawer from toolbar icon.
+- [ ] User can navigate to trash, PDF export, developer info, and top-3 tags.
+- [ ] Top-3 tag shortcuts reflect current tag usage counts.
 
-## Memory List Screen
+---
+
+## Home Screen (홈 · Tab 0)
 
 ### Purpose
 
-Show saved memories with image thumbnail, processing state, tags, category, and memo preview.
+Show all saved memories as a thumbnail grid with processing status indicators.
 
 ### UI Elements
 
-- Search input.
-- Drawer open button.
-- Active category/tag filter chip row.
-- Filter action.
-- Memory thumbnail grid/list.
-- Processing badges.
-- Empty state.
-- Import/gallery action if supported.
+- Search button at top-right toolbar.
+- `RecyclerView` thumbnail grid (Glide + status overlay).
+- Processing badges per item: processing / done / error.
+- Empty state message.
+- FAB (+) at bottom-right for image import.
 
 ### State
 
@@ -123,9 +106,53 @@ Show saved memories with image thumbnail, processing state, tags, category, and 
 - Empty.
 - Content.
 - Error.
-- Searching/filtering.
 
-## Import Confirmation Screen
+---
+
+## Favorites Screen (즐겨찾기 · Tab 1)
+
+### Purpose
+
+Show memories marked as favorite.
+
+### UI Elements
+
+- `RecyclerView` thumbnail grid with same layout as home screen.
+- Empty state for no favorites.
+
+---
+
+## Tag Browse Screen (태그별 사진 · Tab 2)
+
+### Purpose
+
+Browse memories grouped or filtered by tag.
+
+### UI Elements
+
+- Tag chip row at top.
+- `RecyclerView` grid filtered by selected tag.
+- Empty state per tag.
+
+---
+
+## Settings Screen (설정 · Tab 3)
+
+### Purpose
+
+Configure app behavior.
+
+### UI Elements
+
+- API key management (Vision, Gemini, YouTube).
+- Gemini memo recommendation toggle.
+- YouTube deep-link toggle.
+- Processing retry settings.
+- Storage usage info.
+
+---
+
+## Import Confirmation Screen (ShareActivity)
 
 ### Purpose
 
@@ -134,7 +161,7 @@ Confirm shared image import before persistence.
 ### UI Elements
 
 - Image preview.
-- Source metadata.
+- Source metadata (app name, MIME type).
 - Save button.
 - Cancel button.
 - Batch count if multiple images.
@@ -147,49 +174,61 @@ Confirm shared image import before persistence.
 - Partial failure.
 - Error.
 
-## Memory Detail Screen
+---
+
+## Memory Detail Screen (DetailActivity)
 
 ### Purpose
 
-Show image, OCR text, classification, tags, and editable memo.
+Show image, OCR text, classification, Vision labels, tags, editable memo, and YouTube deep-link button.
 
 ### UI Elements
 
 - Full image preview.
-- Memo editor.
-- Tag chips.
-- Category row.
-- OCR text section.
+- Memo editor with Gemini recommendation chip (if available).
+- Tag chips (OCR + Vision + user tags).
+- Category row (TFLite result + confidence).
+- OCR text section (collapsible).
+- **▶ 영상 바로 이동** button (visible when category == youtube and YouTube API returned result).
 - Retry processing actions.
-- Pin/archive/delete actions.
+- Favorite / delete actions.
 
 ### State
 
 - Loading.
 - Content.
-- Processing.
+- Processing (OCR / Vision / Gemini pending).
 - Processing failed.
 - Save failed.
 - Missing memory.
 
-## Search/Filter Screen
+### Memo Recommendation Flow
+
+1. If `geminiMemoStatus == SUGGESTED`, show recommendation chip below memo editor.
+2. User taps chip → memo field is populated; `geminiMemoStatus = ACCEPTED`.
+3. User dismisses chip → `geminiMemoStatus = DISMISSED`.
+4. User saves any memo → persisted in `MemoEntity`.
+
+---
+
+## Search Screen
 
 ### Purpose
 
-Allow query and structured filtering.
+Full-text search via Room FTS across OCR text, memo text, tag names, and category labels.
 
 ### UI Elements
 
 - Query field.
-- Tag multi-select.
+- Tag multi-select filter.
 - Category selector.
 - Date range selector.
 - Clear filters action.
-- Result list.
+- `RecyclerView` result list.
 
 ### State
 
-- No query.
+- No query (show recent or tips).
 - Results.
 - No results.
 - Error.

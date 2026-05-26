@@ -10,6 +10,8 @@ SnapMind uses MVVM with a repository-driven data layer and use cases for feature
 com.example.snapmind
 ├── app
 │   ├── MainActivity.kt
+│   ├── ShareActivity.kt
+│   ├── DetailActivity.kt
 │   └── SnapMindApplication.kt
 ├── core
 │   ├── common
@@ -23,8 +25,16 @@ com.example.snapmind
 │   │   ├── entity
 │   │   └── converter
 │   ├── remote
-│   │   ├── api
-│   │   └── dto
+│   │   ├── gemini
+│   │   │   ├── GeminiApiService.kt
+│   │   │   └── dto
+│   │   ├── vision
+│   │   │   ├── VisionApiService.kt
+│   │   │   └── dto
+│   │   ├── youtube
+│   │   │   ├── YouTubeApiService.kt
+│   │   │   └── dto
+│   │   └── common
 │   ├── repository
 │   └── file
 ├── worker
@@ -40,9 +50,12 @@ com.example.snapmind
 │   └── tagging
 └── feature
     ├── importimage
-    ├── memorylist
+    ├── home
+    ├── favorites
+    ├── tagbrowse
     ├── memorydetail
     ├── search
+    ├── trash
     └── settings
 ```
 
@@ -86,10 +99,12 @@ Repositories coordinate:
 
 - Room DAO operations.
 - File persistence and URI copying.
-- OCR processor execution.
+- OCR processor execution (ML Kit).
 - TFLite classifier execution.
-- Auto-tag rule execution.
-- Optional Retrofit calls.
+- Google Cloud Vision API calls (image labeling).
+- Gemini API calls (memo recommendation).
+- YouTube Data API v3 calls (video title search).
+- Auto-tag rule execution (OCR + TFLite + Vision labels).
 
 Repository interfaces live in `domain/repository`; implementations live in `data/repository`.
 
@@ -101,7 +116,8 @@ Required modules:
 
 - `DatabaseModule`
 - `DaoModule`
-- `NetworkModule`
+- `NetworkModule` (Retrofit clients for Gemini, Vision, YouTube APIs)
+- `ApiModule` (GeminiApiService, VisionApiService, YouTubeApiService)
 - `RepositoryModule`
 - `AiModule`
 - `DispatcherModule`
@@ -125,6 +141,10 @@ Common errors:
 - `FileNotFound`
 - `OcrFailed`
 - `ClassificationFailed`
+- `VisionApiFailed`
+- `GeminiApiFailed`
+- `YouTubeApiFailed`
+- `ApiQuotaExceeded`
 - `DatabaseError`
 - `NetworkUnavailable`
 
