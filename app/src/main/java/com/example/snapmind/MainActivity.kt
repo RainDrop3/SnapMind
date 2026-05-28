@@ -1,6 +1,7 @@
 package com.example.snapmind
 
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -8,6 +9,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -20,6 +22,8 @@ import androidx.viewpager2.widget.ViewPager2
 import com.example.snapmind.data.model.CategoryCount
 import com.example.snapmind.data.model.MemoryCategory
 import com.example.snapmind.data.model.TagCount
+import com.example.snapmind.core.result.AppResult
+import com.example.snapmind.data.repository.MemoryRepository
 import com.example.snapmind.databinding.ActivityMainBinding
 import com.example.snapmind.ui.main.MainPagerAdapter
 import com.example.snapmind.ui.main.MainViewModel
@@ -28,11 +32,17 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
+    @Inject lateinit var memoryRepository: MemoryRepository
+
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MainViewModel by viewModels()
+    private val galleryPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { importPickedImage(it) }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -96,7 +106,21 @@ class MainActivity : AppCompatActivity() {
         bottomNavigation.selectedItemId = mainPager.currentItem.toNavItemId()
 
         uploadFab.setOnClickListener {
-            Toast.makeText(this@MainActivity, "갤러리 선택은 import/API 브랜치에서 연결됩니다.", Toast.LENGTH_SHORT).show()
+            galleryPicker.launch("image/*")
+        }
+    }
+
+    private fun importPickedImage(uri: Uri) {
+        lifecycleScope.launch {
+            when (memoryRepository.importImage(uri, contentResolver.getType(uri), "갤러리")) {
+                is AppResult.Success -> {
+                    binding.mainPager.setCurrentItem(MainPagerAdapter.PAGE_HOME, true)
+                    Toast.makeText(this@MainActivity, "이미지를 SnapMind에 추가했어요.", Toast.LENGTH_SHORT).show()
+                }
+                is AppResult.Error -> {
+                    Toast.makeText(this@MainActivity, "이미지를 추가하지 못했어요.", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 

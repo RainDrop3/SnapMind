@@ -1,18 +1,31 @@
 package com.example.snapmind.data.repository
 
+import android.content.Context
+import android.net.Uri
+import androidx.core.net.toUri
+import com.example.snapmind.core.coroutine.DispatcherProvider
+import com.example.snapmind.core.result.AppError
+import com.example.snapmind.core.result.AppResult
 import com.example.snapmind.data.model.CategoryCount
 import com.example.snapmind.data.model.MemoryCategory
 import com.example.snapmind.data.model.MemoryItem
 import com.example.snapmind.data.model.ProcessingStatus
 import com.example.snapmind.data.model.TagCount
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import java.io.FileOutputStream
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class InMemoryMemoryRepository @Inject constructor() : MemoryRepository {
+class InMemoryMemoryRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val dispatcherProvider: DispatcherProvider,
+) : MemoryRepository {
     private val _memories = MutableStateFlow(seedMemories())
     override val memories: StateFlow<List<MemoryItem>> = _memories.asStateFlow()
 
@@ -55,6 +68,45 @@ class InMemoryMemoryRepository @Inject constructor() : MemoryRepository {
     override fun filterByCategory(category: MemoryCategory?): List<MemoryItem> =
         activeMemories().filter { category == null || it.category == category }
 
+    override suspend fun importImage(
+        sourceUri: Uri,
+        mimeType: String?,
+        sourceLabel: String,
+    ): AppResult<MemoryItem> = withContext(dispatcherProvider.io) {
+        val resolvedMimeType = mimeType ?: context.contentResolver.getType(sourceUri)
+        if (resolvedMimeType?.startsWith("image/") != true) {
+            return@withContext AppResult.Error(AppError.UnsupportedImageType)
+        }
+
+        val nextId = ((_memories.value.maxOfOrNull { it.id } ?: 0L) + 1L)
+        val importedDir = File(context.filesDir, "imported").apply { mkdirs() }
+        val targetFile = File(importedDir, "memory_${System.currentTimeMillis()}_$nextId.${resolvedMimeType.fileExtension()}")
+
+        runCatching {
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                FileOutputStream(targetFile).use { output ->
+                    input.copyTo(output)
+                }
+            } ?: return@withContext AppResult.Error(AppError.FileNotFound)
+        }.onFailure { error ->
+            return@withContext AppResult.Error(AppError.Unknown(error.message.orEmpty()))
+        }
+
+        val imported = MemoryItem(
+            id = nextId,
+            imageUri = targetFile.toUri().toString(),
+            sourceLabel = sourceLabel,
+            category = MemoryCategory.UNKNOWN,
+            memo = "새 이미지 분석을 준비 중입니다.",
+            ocrText = "",
+            tags = listOf("#Imported"),
+            createdAtMillis = System.currentTimeMillis(),
+            processingStatus = ProcessingStatus.PROCESSING,
+        )
+        _memories.value = listOf(imported) + _memories.value
+        AppResult.Success(imported)
+    }
+
     override fun toggleFavorite(memoryId: Long) {
         _memories.value = _memories.value.map { item ->
             if (item.id == memoryId) item.copy(isFavorite = !item.isFavorite) else item
@@ -62,6 +114,13 @@ class InMemoryMemoryRepository @Inject constructor() : MemoryRepository {
     }
 
     private fun String.normalizeTag(): String = trim().removePrefix("#").lowercase()
+
+    private fun String.fileExtension(): String =
+        when (substringAfter("/", missingDelimiterValue = "jpeg").lowercase()) {
+            "png" -> "png"
+            "webp" -> "webp"
+            else -> "jpg"
+        }
 
     private fun seedMemories(): List<MemoryItem> {
         val now = System.currentTimeMillis()
