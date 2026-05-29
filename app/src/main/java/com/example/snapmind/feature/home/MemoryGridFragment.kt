@@ -2,7 +2,6 @@ package com.example.snapmind.feature.home
 
 import android.os.Bundle
 import android.view.View
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
@@ -12,6 +11,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import com.example.snapmind.R
 import com.example.snapmind.data.model.MemoryItem
 import com.example.snapmind.databinding.FragmentMemoryGridBinding
+import com.example.snapmind.feature.memorydetail.DetailActivity
 import com.example.snapmind.ui.main.MainUiState
 import com.example.snapmind.ui.main.MainViewModel
 import com.google.android.material.chip.Chip
@@ -31,9 +31,10 @@ abstract class MemoryGridFragment : Fragment(R.layout.fragment_memory_grid) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         _binding = FragmentMemoryGridBinding.bind(view)
-        adapter = MemoryGridAdapter { item ->
-            Toast.makeText(requireContext(), "${item.category.displayName} 상세 화면", Toast.LENGTH_SHORT).show()
-        }
+        adapter = MemoryGridAdapter(
+            onMemoryClick = { item -> startActivity(DetailActivity.createIntent(requireContext(), item.id)) },
+            onFavoriteClick = { item -> viewModel.toggleFavorite(item.id) },
+        )
         binding.memoryRecyclerView.layoutManager = GridLayoutManager(requireContext(), 2)
         binding.memoryRecyclerView.adapter = adapter
         binding.emptyTitle.text = emptyTitle

@@ -38,6 +38,9 @@ class InMemoryMemoryRepository @Inject constructor(
     override fun favoriteMemories(): List<MemoryItem> =
         activeMemories().filter { it.isFavorite }
 
+    override fun trashedMemories(): List<MemoryItem> =
+        _memories.value.filter { it.isDeleted }.sortedByDescending { it.deletedAtMillis ?: 0L }
+
     override fun topTags(limit: Int): List<TagCount> =
         activeMemories()
             .flatMap { it.tags }
@@ -57,6 +60,26 @@ class InMemoryMemoryRepository @Inject constructor(
             .map { CategoryCount(category = it.key, count = it.value) }
 
     override fun tags(): List<TagCount> = topTags(Int.MAX_VALUE)
+
+    override fun searchMemories(
+        query: String,
+        tagName: String?,
+        category: MemoryCategory?,
+    ): List<MemoryItem> {
+        val normalizedQuery = query.trim()
+        val normalizedTag = tagName?.normalizeTag()
+        return activeMemories().filter { memory ->
+            val matchesQuery = normalizedQuery.isBlank() ||
+                memory.memo.contains(normalizedQuery, ignoreCase = true) ||
+                memory.ocrText.contains(normalizedQuery, ignoreCase = true) ||
+                memory.category.displayName.contains(normalizedQuery, ignoreCase = true) ||
+                memory.tags.any { it.contains(normalizedQuery, ignoreCase = true) } ||
+                memory.youtubeTitle?.contains(normalizedQuery, ignoreCase = true) == true
+            val matchesTag = normalizedTag == null || memory.tags.any { it.normalizeTag() == normalizedTag }
+            val matchesCategory = category == null || memory.category == category
+            matchesQuery && matchesTag && matchesCategory
+        }
+    }
 
     override fun filterByTag(tagName: String?): List<MemoryItem> {
         val normalized = tagName?.normalizeTag()
@@ -110,6 +133,35 @@ class InMemoryMemoryRepository @Inject constructor(
     override fun toggleFavorite(memoryId: Long) {
         _memories.value = _memories.value.map { item ->
             if (item.id == memoryId) item.copy(isFavorite = !item.isFavorite) else item
+        }
+    }
+
+    override fun updateMemo(memoryId: Long, memo: String) {
+        updateMemory(memoryId) { it.copy(memo = memo) }
+    }
+
+    override fun acceptGeminiSuggestion(memoryId: Long) {
+        updateMemory(memoryId) { item ->
+            val suggestion = item.geminiSuggestion ?: return@updateMemory item
+            item.copy(memo = suggestion, geminiSuggestion = null)
+        }
+    }
+
+    override fun dismissGeminiSuggestion(memoryId: Long) {
+        updateMemory(memoryId) { it.copy(geminiSuggestion = null) }
+    }
+
+    override fun softDelete(memoryId: Long) {
+        updateMemory(memoryId) { it.copy(deletedAtMillis = System.currentTimeMillis()) }
+    }
+
+    override fun restore(memoryId: Long) {
+        updateMemory(memoryId) { it.copy(deletedAtMillis = null) }
+    }
+
+    private fun updateMemory(memoryId: Long, transform: (MemoryItem) -> MemoryItem) {
+        _memories.value = _memories.value.map { item ->
+            if (item.id == memoryId) transform(item) else item
         }
     }
 

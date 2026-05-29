@@ -4,6 +4,8 @@ import android.net.Uri
 import android.text.format.DateUtils
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
+import androidx.core.widget.ImageViewCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -16,6 +18,7 @@ import com.example.snapmind.databinding.ItemMemoryCardBinding
 
 class MemoryGridAdapter(
     private val onMemoryClick: (MemoryItem) -> Unit,
+    private val onFavoriteClick: (MemoryItem) -> Unit,
 ) : ListAdapter<MemoryItem, MemoryGridAdapter.MemoryViewHolder>(MemoryDiff) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MemoryViewHolder {
@@ -24,7 +27,7 @@ class MemoryGridAdapter(
             parent,
             false,
         )
-        return MemoryViewHolder(binding, onMemoryClick)
+        return MemoryViewHolder(binding, onMemoryClick, onFavoriteClick)
     }
 
     override fun onBindViewHolder(holder: MemoryViewHolder, position: Int) {
@@ -34,10 +37,12 @@ class MemoryGridAdapter(
     class MemoryViewHolder(
         private val binding: ItemMemoryCardBinding,
         private val onMemoryClick: (MemoryItem) -> Unit,
+        private val onFavoriteClick: (MemoryItem) -> Unit,
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: MemoryItem) = with(binding) {
             root.setOnClickListener { onMemoryClick(item) }
+            favoriteButton.setOnClickListener { onFavoriteClick(item) }
             categoryBadge.text = item.category.displayName
             memoText.text = item.memo.ifBlank { "메모가 아직 없어요. 상세 화면에서 저장 이유를 남겨보세요." }
             timeText.text = DateUtils.getRelativeTimeSpanString(
@@ -48,6 +53,13 @@ class MemoryGridAdapter(
             tagText.text = item.tags.firstOrNull().orEmpty()
             statusBadge.text = item.processingStatus.displayText()
             statusBadge.setBackgroundResource(item.processingStatus.badgeBackground())
+            ImageViewCompat.setImageTintList(
+                favoriteButton,
+                ContextCompat.getColorStateList(
+                    favoriteButton.context,
+                    if (item.isFavorite) R.color.snap_rose else R.color.snap_text_secondary,
+                ),
+            )
 
             thumbFrame.setBackgroundResource(item.category.thumbnailBackground())
             if (item.imageUri.isNullOrBlank()) {

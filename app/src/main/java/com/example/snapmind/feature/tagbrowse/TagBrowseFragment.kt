@@ -2,7 +2,6 @@ package com.example.snapmind.feature.tagbrowse
 
 import android.os.Bundle
 import android.view.View
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
@@ -11,6 +10,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.GridLayoutManager
 import com.example.snapmind.R
 import com.example.snapmind.databinding.FragmentTagBrowseBinding
+import com.example.snapmind.feature.memorydetail.DetailActivity
 import com.example.snapmind.feature.home.MemoryGridAdapter
 import com.example.snapmind.ui.main.MainUiState
 import com.example.snapmind.ui.main.MainViewModel
@@ -27,9 +27,10 @@ class TagBrowseFragment : Fragment(R.layout.fragment_tag_browse) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         _binding = FragmentTagBrowseBinding.bind(view)
-        adapter = MemoryGridAdapter { item ->
-            Toast.makeText(requireContext(), "${item.category.displayName} 상세 화면", Toast.LENGTH_SHORT).show()
-        }
+        adapter = MemoryGridAdapter(
+            onMemoryClick = { item -> startActivity(DetailActivity.createIntent(requireContext(), item.id)) },
+            onFavoriteClick = { item -> viewModel.toggleFavorite(item.id) },
+        )
         binding.tagMemoryRecyclerView.layoutManager = GridLayoutManager(requireContext(), 2)
         binding.tagMemoryRecyclerView.adapter = adapter
 

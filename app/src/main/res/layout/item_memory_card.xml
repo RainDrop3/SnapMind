@@ -65,6 +65,17 @@
                 android:textSize="11sp"
                 android:textStyle="bold"
                 tools:text="완료" />
+
+            <ImageButton
+                android:id="@+id/favoriteButton"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_gravity="end|bottom"
+                android:layout_margin="8dp"
+                android:background="@drawable/bg_badge_soft"
+                android:contentDescription="즐겨찾기 토글"
+                android:padding="9dp"
+                android:src="@drawable/ic_heart" />
         </FrameLayout>
 
         <LinearLayout

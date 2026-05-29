@@ -1,6 +1,7 @@
 package com.example.snapmind
 
 import android.graphics.Typeface
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
@@ -25,6 +26,10 @@ import com.example.snapmind.data.model.TagCount
 import com.example.snapmind.core.result.AppResult
 import com.example.snapmind.data.repository.MemoryRepository
 import com.example.snapmind.databinding.ActivityMainBinding
+import com.example.snapmind.feature.search.SearchActivity
+import com.example.snapmind.feature.utility.DeveloperInfoActivity
+import com.example.snapmind.feature.utility.PdfExportActivity
+import com.example.snapmind.feature.utility.TrashActivity
 import com.example.snapmind.ui.main.MainPagerAdapter
 import com.example.snapmind.ui.main.MainViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -75,7 +80,7 @@ class MainActivity : AppCompatActivity() {
         setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_search -> {
-                    Toast.makeText(this@MainActivity, "검색 화면은 다음 브랜치에서 연결됩니다.", Toast.LENGTH_SHORT).show()
+                    startActivity(Intent(this@MainActivity, SearchActivity::class.java))
                     true
                 }
                 else -> false
@@ -136,15 +141,15 @@ class MainActivity : AppCompatActivity() {
         })
         trashButton.setOnClickListener {
             drawerLayout.closeDrawer(GravityCompat.START)
-            Toast.makeText(this@MainActivity, "휴지통 화면은 UI 브랜치에서 연결됩니다.", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this@MainActivity, TrashActivity::class.java))
         }
         pdfButton.setOnClickListener {
             drawerLayout.closeDrawer(GravityCompat.START)
-            Toast.makeText(this@MainActivity, "PDF 추출 흐름은 UI 브랜치에서 연결됩니다.", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this@MainActivity, PdfExportActivity::class.java))
         }
         developerButton.setOnClickListener {
             drawerLayout.closeDrawer(GravityCompat.START)
-            Toast.makeText(this@MainActivity, "개발자 소개는 UI 브랜치에서 연결됩니다.", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this@MainActivity, DeveloperInfoActivity::class.java))
         }
     }
 

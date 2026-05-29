@@ -14,9 +14,16 @@ interface MemoryRepository {
     fun getMemory(memoryId: Long): MemoryItem?
     fun activeMemories(): List<MemoryItem>
     fun favoriteMemories(): List<MemoryItem>
+    fun trashedMemories(): List<MemoryItem>
     fun topTags(limit: Int = 3): List<TagCount>
     fun categoryCounts(): List<CategoryCount>
     fun tags(): List<TagCount>
+    fun searchMemories(
+        query: String,
+        tagName: String? = null,
+        category: MemoryCategory? = null,
+    ): List<MemoryItem>
+
     fun filterByTag(tagName: String?): List<MemoryItem>
     fun filterByCategory(category: MemoryCategory?): List<MemoryItem>
     suspend fun importImage(
@@ -26,4 +33,9 @@ interface MemoryRepository {
     ): AppResult<MemoryItem>
 
     fun toggleFavorite(memoryId: Long)
+    fun updateMemo(memoryId: Long, memo: String)
+    fun acceptGeminiSuggestion(memoryId: Long)
+    fun dismissGeminiSuggestion(memoryId: Long)
+    fun softDelete(memoryId: Long)
+    fun restore(memoryId: Long)
 }
