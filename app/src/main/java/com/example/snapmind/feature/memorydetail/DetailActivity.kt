@@ -6,73 +6,79 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.widget.doOnTextChanged
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.bumptech.glide.Glide
 import com.example.snapmind.R
 import com.example.snapmind.data.model.MemoryCategory
 import com.example.snapmind.data.model.MemoryItem
-import com.example.snapmind.data.repository.MemoryRepository
 import com.example.snapmind.databinding.ActivityMemoryDetailBinding
 import com.google.android.material.chip.Chip
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class DetailActivity : AppCompatActivity() {
-    @Inject lateinit var memoryRepository: MemoryRepository
 
+    private val viewModel: DetailViewModel by viewModels()
     private lateinit var binding: ActivityMemoryDetailBinding
-    private var memoryId: Long = -1L
     private var ocrVisible = false
+    private var suppressMemoTextWatcher = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMemoryDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        memoryId = intent.getLongExtra(EXTRA_MEMORY_ID, -1L)
+
+        viewModel.bind(intent.getLongExtra(EXTRA_MEMORY_ID, -1L))
 
         binding.detailToolbar.setNavigationOnClickListener { finish() }
         binding.ocrHeader.setOnClickListener {
             ocrVisible = !ocrVisible
             binding.ocrText.visibility = if (ocrVisible) View.VISIBLE else View.GONE
         }
-        binding.saveMemoButton.setOnClickListener { saveMemo() }
-        binding.favoriteDetailButton.setOnClickListener {
-            memoryRepository.toggleFavorite(memoryId)
-            render()
+        binding.saveMemoButton.setOnClickListener {
+            if (viewModel.saveMemo()) {
+                Toast.makeText(this, "메모를 저장했어요.", Toast.LENGTH_SHORT).show()
+            }
         }
+        binding.favoriteDetailButton.setOnClickListener { viewModel.toggleFavorite() }
         binding.deleteButton.setOnClickListener {
-            memoryRepository.softDelete(memoryId)
+            viewModel.softDelete()
             Toast.makeText(this, "휴지통으로 이동했어요.", Toast.LENGTH_SHORT).show()
             finish()
         }
-        binding.geminiSuggestionChip.setOnClickListener {
-            memoryRepository.acceptGeminiSuggestion(memoryId)
-            render()
-        }
-        binding.geminiSuggestionChip.setOnCloseIconClickListener {
-            memoryRepository.dismissGeminiSuggestion(memoryId)
-            render()
+        binding.geminiSuggestionChip.setOnClickListener { viewModel.acceptGeminiSuggestion() }
+        binding.geminiSuggestionChip.setOnCloseIconClickListener { viewModel.dismissGeminiSuggestion() }
+        binding.memoEditText.doOnTextChanged { text, _, _, _ ->
+            if (suppressMemoTextWatcher) return@doOnTextChanged
+            viewModel.onMemoDraftChanged(text?.toString().orEmpty())
         }
 
         lifecycleScope.launch {
-            memoryRepository.memories.collect { render() }
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { state ->
+                    if (state.gone) {
+                        Toast.makeText(this@DetailActivity, "메모리를 찾을 수 없어요.", Toast.LENGTH_SHORT).show()
+                        finish()
+                        return@collect
+                    }
+                    val memory = state.memory ?: return@collect
+                    render(memory, state.memoDraft, state.hasUnsavedMemo)
+                }
+            }
         }
     }
 
-    private fun render() {
-        val memory = memoryRepository.getMemory(memoryId)
-        if (memory == null || memory.isDeleted) {
-            Toast.makeText(this, "메모리를 찾을 수 없어요.", Toast.LENGTH_SHORT).show()
-            finish()
-            return
-        }
-
+    private fun render(memory: MemoryItem, memoDraft: String, hasUnsavedMemo: Boolean) {
         binding.detailToolbar.title = memory.category.displayName
-        binding.memoEditText.setText(memory.memo)
+        syncMemoEditText(memoDraft)
+        binding.saveMemoButton.isEnabled = hasUnsavedMemo
         binding.ocrText.text = memory.ocrText.ifBlank { "아직 OCR 텍스트가 준비되지 않았습니다." }
         renderPreview(memory)
         renderChips(memory)
@@ -82,6 +88,15 @@ class DetailActivity : AppCompatActivity() {
             this,
             if (memory.isFavorite) R.color.snap_rose else R.color.snap_text_secondary,
         )
+    }
+
+    private fun syncMemoEditText(target: String) {
+        val current = binding.memoEditText.text?.toString().orEmpty()
+        if (current == target) return
+        suppressMemoTextWatcher = true
+        binding.memoEditText.setText(target)
+        binding.memoEditText.setSelection(target.length.coerceAtMost(binding.memoEditText.length()))
+        suppressMemoTextWatcher = false
     }
 
     private fun renderPreview(memory: MemoryItem) = with(binding) {
@@ -129,11 +144,6 @@ class DetailActivity : AppCompatActivity() {
         setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(memory.youtubeUrl)))
         }
-    }
-
-    private fun saveMemo() {
-        memoryRepository.updateMemo(memoryId, binding.memoEditText.text?.toString().orEmpty())
-        Toast.makeText(this, "메모를 저장했어요.", Toast.LENGTH_SHORT).show()
     }
 
     private fun MemoryCategory.thumbnailBackground(): Int =

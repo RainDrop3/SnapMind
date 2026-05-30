@@ -451,3 +451,82 @@ raw.split(\\s+).joinToString(" ") { "\"${it.replace("\"","")}\"*" }
 - SearchActivity는 이제 ViewModel을 사용하므로 `memoryRepository.tags()` / `categoryCounts()` 호출 횟수가 줄어듬 (StateFlow 캐시 1회)
 - FTS 검색은 한 번에 매칭 ID만 받아오고 나머지는 in-memory snapshot에서 lookup — 5,000개 메모리 가정에서도 즉답 가능
 - TF 버전 차이로 op version이 또 올라가면 LiteRT 1.0.1 → 1.1.x/1.2.x로 한 줄만 올리면 됨
+
+---
+
+# Phase 5 — 상세 화면 데이터 로직 완료
+
+## 작업 범위
+
+`docs/todos/team_todo.md`의 **Phase 5 — 팀원 A** 3개 항목 모두 완료:
+
+- [x] `#25` DetailActivity — 이미지 원본 + OCR 텍스트 표시
+- [x] `#26` 분류 카테고리 + 태그 표시
+- [x] `#28` 메모 작성 / 수정 로직 + DB 연동
+
+근거 명세:
+- `docs/features/memo-management.md` — 메모 ViewModel + StateFlow, config change 생존, Gemini 추천 흐름
+- `docs/specs/screen-specs.md` — 상세 화면 요구
+
+## 주요 결정 사항
+
+### 1. B Activity 1개 수정 (사용자 명시 승인 예외)
+
+`DetailActivity` 수정 허용. 명세 "Memo edits must survive configuration changes" + "ViewModel + StateFlow"를 충족하려면 ViewModel 도입이 필수. 사용자 승인 받아 진행.
+
+### 2. DetailViewModel — SavedStateHandle 기반 상태 보존
+
+`DetailViewModel`이 두 가지 키를 `SavedStateHandle`에 저장:
+- `detail.memoryId` (Long) — 현재 보고 있는 메모리 ID. 프로세스 사망 후 복구 가능
+- `detail.memoDraft` (String?) — 저장 안 된 메모 편집 내용. `null`이면 "저장된 메모와 동일", non-null이면 미저장 변경분
+
+`bind(memoryId)`로 초기화 — Activity onCreate에서 호출. 동일 ID 재바인딩은 no-op (config change 시 draft 보존).
+
+### 3. DetailUiState 단일 상태 노출
+
+`combine(repository.memories, memoryIdFlow, memoDraftFlow)`로 합성:
+- 메모리 없음/삭제됨 → `gone = true` (Activity가 finish())
+- 메모리 존재 → `memoDraft = draft ?: memory.memo`, `hasUnsavedMemo = draft != null && draft != memory.memo`
+
+`hasUnsavedMemo`가 `false`일 때 저장 버튼 비활성 → 저장 후 자동 비활성.
+
+### 4. EditText ↔ ViewModel 양방향 안전 바인딩
+
+`suppressMemoTextWatcher` 플래그로 피드백 루프 방지:
+- ViewModel 상태 변경 → `syncMemoEditText(target)`: 현재 텍스트와 다를 때만 `setText` + 커서 끝으로
+- 사용자 타이핑 → `doOnTextChanged` → `viewModel.onMemoDraftChanged(text)` (suppress 플래그로 ViewModel 트리거 시점은 무시)
+- 결과: 회전/재구성에도 입력 위치 유지, 외부 메모리 변경(다른 화면에서 수정)도 즉시 반영
+
+### 5. 액션 위임
+
+모든 상호작용을 ViewModel 메서드로 위임:
+- `saveMemo()` — draft가 있을 때만 동작, 저장 후 draft clear → 다음 emission에서 hasUnsavedMemo=false
+- `toggleFavorite()`, `softDelete()`, `acceptGeminiSuggestion()`, `dismissGeminiSuggestion()`
+- Gemini 수락 시 draft 자동 clear (메모 본문이 suggestion으로 덮어쓰임)
+
+### 6. #25/#26 처리
+
+이미 RoomMemoryRepository(Phase 2~3)가 OCR/분류/태그 데이터를 도메인 모델에 매핑해서 노출 중이라 별도 데이터 작업 없음. DetailActivity의 기존 표시 로직(`renderPreview`, `renderChips`, `renderSuggestion`, `renderYoutube`) 유지하고 데이터 소스만 ViewModel로 전환.
+
+## 추가/수정한 파일 (총 4)
+
+### 수정 (3)
+- `feature/memorydetail/DetailActivity.kt` — ViewModel 기반 재작성 (B 예외)
+- `docs/todos/team_todo.md` — Phase 5 체크
+- `docs/handover_to_team_b.md` — B 영향 알림
+
+### 신규 (1)
+- `feature/memorydetail/DetailViewModel.kt` — SavedStateHandle + Flow 합성
+
+## 다음 Phase에서 해야 할 일 (팀원 A)
+
+### Phase 6 (안정성 · 설정)
+- `#37` Coroutine 전역 예외 처리 — `RoomMemoryRepository.scope`에 `CoroutineExceptionHandler` 부착 + WorkManager Worker 실패 정책 통일
+- `#38` 대용량 이미지 OOM 방지 — `ImageImporter`/`ImageClassifier`에 `BitmapFactory.Options.inSampleSize` 적용 (PdfExporter는 이미 inSampleSize=2 + RGB_565 적용됨)
+- `#39` URI 권한 만료 — Phase 2에서 import 시점에 즉시 복사하므로 영향 없음. 검증만 필요 (예: 외부 URI grant 만료 시 fallback 경로 확인)
+- `#36` 설정 화면 — 설정 항목 정의 + DataStore/SharedPreferences 도입 + 설정 적용 흐름
+
+### 알아둘 점
+- DetailActivity는 이제 회전/프로세스 사망 후에도 편집 중이던 메모를 잃지 않음
+- 저장 버튼은 미저장 변경분이 있을 때만 활성. UI에 명시적 "수정 중" 표시는 없음 (Phase 6/추가 UI 작업에서 보강 가능)
+- ViewModel의 `bind()`는 Activity onCreate마다 호출되지만 동일 ID면 idempotent — 따라서 다른 Detail로 navigate는 새 Activity 인스턴스가 새 VM 생성
