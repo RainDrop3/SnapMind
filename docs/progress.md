@@ -337,4 +337,117 @@ asset 폴더 구성:
 
 **재학습 시 주의:**
 - `image_dataset_from_directory`의 알파벳 정렬 규칙 때문에 클래스 폴더명을 바꾸면 `class_names` 순서가 바뀜 → 반드시 새로 생성된 `labels.txt`도 함께 교체. 모델/라벨 한쪽만 교체하면 분류 결과 깨짐
+
+---
+
+# Phase 4 — 검색 백엔드 · 휴지통 · PDF 완료
+
+## 작업 범위
+
+`docs/todos/team_todo.md`의 **Phase 4 — 팀원 A** 4개 항목 모두 완료:
+
+- [x] `#19` Room FTS 통합 검색 쿼리
+- [x] `#20` 검색 결과 Flow 스트림 + ViewModel
+- [x] `#32` 휴지통 복구 + 영구 삭제 로직
+- [x] `#33` PDF 추출 기능
+
+근거 명세:
+- `docs/features/search-filter.md` — FTS + debounce + ViewModel
+- `docs/features/memo-management.md` — 영구 삭제 시 cascade 규칙
+- `docs/architecture/privacy-security.md` — 파일 cleanup
+- `docs/specs/screen-specs.md` — 휴지통/PDF 화면 요구
+
+## 주요 결정 사항
+
+### 1. B Activity 3개 수정 (사용자 명시 승인 예외)
+
+옵션 1(backend-only)과 옵션 2(UI까지 연결) 중 **옵션 2** 선택. SearchActivity / TrashActivity / PdfExportActivity 모두 수정. 신규 ViewModel/메서드 활용 + Phase 4 명세 100% 충족.
+
+### 2. MemoryRepository 인터페이스 확장 (3개 메서드)
+
+- `suspend fun searchFts(query: String): List<MemoryItem>` — FTS 기반 검색. 빈 query면 active 전체 반환
+- `suspend fun permanentDelete(memoryId: Long): AppResult<Unit>` — FTS row 삭제 + memory_items DELETE(CASCADE로 OCR/메모/태그/분류/유튜브 모두 삭제) + 이미지 파일 cleanup
+- `suspend fun exportToPdf(memoryIds: List<Long>): AppResult<Uri>` — 빈 리스트면 활성 전체 export
+
+`InMemoryMemoryRepository`(여전히 dead code)에도 stub 추가하여 컴파일 유지.
+
+### 3. FTS 쿼리 escape 전략
+
+`RoomMemoryRepository.escapeFtsQuery`:
+```kotlin
+raw.split(\\s+).joinToString(" ") { "\"${it.replace("\"","")}\"*" }
+```
+- 토큰별로 큰따옴표로 감싸고 prefix wildcard `*` 부착
+- 모든 토큰 AND (FTS4 기본 동작)
+- 결과: "react bug" → `"react"* "bug"*` — react로 시작하는 단어 AND bug로 시작하는 단어
+
+### 4. SearchViewModel 설계
+
+- `_query: MutableStateFlow<String>` + `.debounce(250ms).distinctUntilChanged()`
+- 4개 StateFlow combine: `repository.memories`(DB 변경 신호) + debouncedQuery + tagName + category
+- `mapLatest`로 최신 입력만 처리 (오래된 검색 자동 취소)
+- 결과는 `searchFts(query)`로 FTS 후보 추출 → in-memory에서 tag/category 필터
+- `SearchUiState` 단일 객체로 노출 (results + tags + categories + 선택 상태)
+
+### 5. 영구 삭제 + 파일 cleanup
+
+- `memorySearchDao.deleteIndex(memoryId)` 먼저 (FTS는 FK CASCADE 안 됨, virtual table 한계)
+- `memoryItemDao.deleteById(memoryId)` — FK CASCADE로 ocr/memo/classifications/vision_labels/youtube_links/memory_tag_cross_refs 자동 삭제. tags 자체는 보존(타 메모리에서 쓸 수 있음)
+- 이미지 파일: `file://` URI에서 path 디코딩 → `context.filesDir` 하위인지 canonical path로 검증(traversal 방지) → 삭제
+- 실패해도 DB는 이미 삭제된 상태 → Best-effort cleanup
+- TrashActivity에서 개별(하트 버튼 길게 누름이 아니라 하트 탭 시 영구 삭제 확인 다이얼로그) + 전체("휴지통 비우기" 툴바 메뉴) 모두 지원
+
+### 6. PDF 출력 전략
+
+`PdfExporter` 서비스:
+- Android 내장 `PdfDocument` API 사용 (외부 라이브러리 없음)
+- A4 595x842pt, 메모리당 1페이지
+- 페이지 레이아웃: 헤더(타임스탬프, 페이지 N/M) + 카테고리 + 태그 + 이미지(최대 300pt 높이, 비율 유지) + 메모 + OCR(최대 800자) + 유튜브 URL
+- 이미지 디코드는 `inSampleSize=2 + RGB_565`로 OOM 회피
+- 출력 위치: `context.cacheDir/exports/snapmind_export_{timestamp}.pdf`
+- `FileProvider`(`${applicationId}.fileprovider`)로 content:// URI 변환 → `Intent.ACTION_SEND` 공유 가능
+- `res/xml/file_paths.xml`에 `<cache-path name="exports" path="exports/" />` 선언
+
+### 7. B Activity 수정 요지
+
+- **SearchActivity**: `MemoryRepository` 직접 주입 제거 → `SearchViewModel by viewModels()`. 텍스트 입력은 `viewModel.onQueryChanged`로 위임 → ViewModel이 debounce 처리. `repeatOnLifecycle(STARTED)`로 결과 구독.
+- **TrashActivity**: 툴바에 `menu_trash.xml`(휴지통 비우기) 추가. 하트 버튼 = 개별 영구삭제 확인 다이얼로그(복구는 카드 탭). 휴지통 비우기 = 전체 영구삭제 확인 → 루프 호출.
+- **PdfExportActivity**: 버튼 → `exportToPdf(activeIds)` → `ACTION_SEND chooser`. 진행 중에는 버튼 비활성 + "PDF 생성 중…" 표시.
+
+## 추가/수정한 파일 (총 12)
+
+### 수정 (7)
+- `data/local/dao/MemorySearchDao.kt` — `searchIds` + `observeSearch(Flow)` 추가
+- `data/repository/MemoryRepository.kt` — 3개 메서드 추가
+- `data/repository/InMemoryMemoryRepository.kt` — stub 추가
+- `data/repository/RoomMemoryRepository.kt` — 신규 메서드 구현 + `PdfExporter` 주입 + `escapeFtsQuery`
+- `feature/search/SearchActivity.kt` — ViewModel 기반 재작성 (B 예외)
+- `feature/utility/TrashActivity.kt` — 영구 삭제 추가 (B 예외)
+- `feature/utility/PdfExportActivity.kt` — 실제 PDF 생성 + 공유 (B 예외)
+- `app/src/main/AndroidManifest.xml` — FileProvider 등록
+
+### 신규 (4)
+- `core/pdf/PdfExporter.kt` — PDF 생성 서비스
+- `feature/search/SearchViewModel.kt` — debounce + Flow 기반 검색 VM
+- `res/xml/file_paths.xml` — FileProvider 경로 정의
+- `res/menu/menu_trash.xml` — 휴지통 비우기 메뉴
+
+## 다음 Phase에서 해야 할 일 (팀원 A)
+
+### Phase 5 (상세 화면 데이터 로직)
+- `#25` DetailActivity 이미지 원본 + OCR 텍스트 표시 — 도메인 매핑은 이미 반영. ViewModel만 작성
+- `#26` 분류 카테고리 + 태그 표시 — 동일
+- `#28` 메모 작성/수정 + DB 연동 — `updateMemo` 이미 구현됨. ViewModel + 양방향 바인딩
+
+### Phase 6 (안정성)
+- `#37` Coroutine 예외 처리 — RoomMemoryRepository `scope`에 `CoroutineExceptionHandler`
+- `#38` 대용량 이미지 OOM — `ImageImporter`/`PdfExporter` 디코드 시 inSampleSize 적용 (PdfExporter는 이미 적용됨)
+- `#39` URI 권한 만료 — import 시점 즉시 복사하므로 영향 없음
+- `#36` 설정 화면 — 설정 항목(예: 자동 OCR 활성화, 캐시 정리) 정의 필요
+
+### 알아둘 점
+- 영구 삭제는 비가역. UI 확인 다이얼로그 필수
+- PDF 캐시 파일은 자동 정리 안 됨 (Android의 cache 자동 정리에 의존). Phase 6에서 명시적 cleanup 워커 추가 고려
+- SearchActivity는 이제 ViewModel을 사용하므로 `memoryRepository.tags()` / `categoryCounts()` 호출 횟수가 줄어듬 (StateFlow 캐시 1회)
+- FTS 검색은 한 번에 매칭 ID만 받아오고 나머지는 in-memory snapshot에서 lookup — 5,000개 메모리 가정에서도 즉답 가능
 - TF 버전 차이로 op version이 또 올라가면 LiteRT 1.0.1 → 1.1.x/1.2.x로 한 줄만 올리면 됨

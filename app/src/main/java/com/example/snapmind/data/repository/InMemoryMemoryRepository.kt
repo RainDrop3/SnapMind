@@ -159,6 +159,17 @@ class InMemoryMemoryRepository @Inject constructor(
         updateMemory(memoryId) { it.copy(deletedAtMillis = null) }
     }
 
+    override suspend fun permanentDelete(memoryId: Long): AppResult<Unit> {
+        _memories.value = _memories.value.filterNot { it.id == memoryId }
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun searchFts(query: String): List<MemoryItem> =
+        searchMemories(query)
+
+    override suspend fun exportToPdf(memoryIds: List<Long>): AppResult<Uri> =
+        AppResult.Error(AppError.Unknown("InMemory repository does not support PDF export"))
+
     private fun updateMemory(memoryId: Long, transform: (MemoryItem) -> MemoryItem) {
         _memories.value = _memories.value.map { item ->
             if (item.id == memoryId) transform(item) else item

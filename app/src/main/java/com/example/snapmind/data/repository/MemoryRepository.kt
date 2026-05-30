@@ -38,4 +38,7 @@ interface MemoryRepository {
     fun dismissGeminiSuggestion(memoryId: Long)
     fun softDelete(memoryId: Long)
     fun restore(memoryId: Long)
+    suspend fun permanentDelete(memoryId: Long): AppResult<Unit>
+    suspend fun searchFts(query: String): List<MemoryItem>
+    suspend fun exportToPdf(memoryIds: List<Long>): AppResult<Uri>
 }

@@ -7,6 +7,7 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.example.snapmind.core.coroutine.DispatcherProvider
 import com.example.snapmind.core.image.ImageImporter
+import com.example.snapmind.core.pdf.PdfExporter
 import com.example.snapmind.core.result.AppError
 import com.example.snapmind.core.result.AppResult
 import com.example.snapmind.data.local.dao.MemoDao
@@ -53,6 +54,7 @@ class RoomMemoryRepository @Inject constructor(
     private val memorySearchDao: MemorySearchDao,
     private val imageImporter: ImageImporter,
     private val tagAssigner: TagAssigner,
+    private val pdfExporter: PdfExporter,
     private val dispatcherProvider: DispatcherProvider,
 ) : MemoryRepository {
 
@@ -253,6 +255,51 @@ class RoomMemoryRepository @Inject constructor(
             memoryItemDao.setDeletedAt(memoryId, null, System.currentTimeMillis())
         }
     }
+
+    override suspend fun permanentDelete(memoryId: Long): AppResult<Unit> {
+        val entity = memoryItemDao.getById(memoryId)
+            ?: return AppResult.Success(Unit)
+        return runCatching {
+            memorySearchDao.deleteIndex(memoryId)
+            memoryItemDao.deleteById(memoryId)
+            entity.imageUri.takeIf { it.startsWith("file://") }?.let { uriString ->
+                val path = uriString.removePrefix("file://")
+                val file = java.io.File(java.net.URLDecoder.decode(path, Charsets.UTF_8.name()))
+                if (file.exists() && file.canonicalPath.startsWith(context.filesDir.canonicalPath)) {
+                    file.delete()
+                }
+            }
+            AppResult.Success(Unit) as AppResult<Unit>
+        }.getOrElse { AppResult.Error(AppError.Unknown(it.message.orEmpty())) }
+    }
+
+    override suspend fun searchFts(query: String): List<MemoryItem> {
+        val active = activeMemories()
+        val sanitized = query.trim()
+        if (sanitized.isEmpty()) return active
+        val tokens = escapeFtsQuery(sanitized)
+        if (tokens.isEmpty()) return active
+        val matchingIds = runCatching { memorySearchDao.searchIds(tokens) }.getOrDefault(emptyList())
+        if (matchingIds.isEmpty()) return emptyList()
+        val idSet = matchingIds.toSet()
+        return active.filter { it.id in idSet }
+    }
+
+    override suspend fun exportToPdf(memoryIds: List<Long>): AppResult<android.net.Uri> {
+        val pool = if (memoryIds.isEmpty()) activeMemories() else {
+            val idSet = memoryIds.toSet()
+            snapshot.filter { it.id in idSet }
+        }
+        return pdfExporter.export(pool)
+    }
+
+    private fun escapeFtsQuery(raw: String): String =
+        raw.split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+            .joinToString(" ") { token ->
+                val cleaned = token.replace("\"", "")
+                "\"$cleaned\"*"
+            }
 
     private suspend fun buildAggregate(entity: MemoryItemEntity): MemoryAggregate {
         val activeRefs = memoryTagDao.activeTagsForMemory(entity.id)
