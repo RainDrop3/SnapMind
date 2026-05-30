@@ -1,7 +1,7 @@
 package com.example.snapmind.di
 
-import com.example.snapmind.data.repository.InMemoryMemoryRepository
 import com.example.snapmind.data.repository.MemoryRepository
+import com.example.snapmind.data.repository.RoomMemoryRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -14,6 +14,6 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindMemoryRepository(
-        repository: InMemoryMemoryRepository,
+        repository: RoomMemoryRepository,
     ): MemoryRepository
 }

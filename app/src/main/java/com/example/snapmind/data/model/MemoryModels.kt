@@ -7,13 +7,14 @@ enum class ProcessingStatus {
 }
 
 enum class MemoryCategory(val displayName: String, val glyph: String) {
+    CHAT("Chat", "CHAT"),
+    RECEIPT("Receipt", "RCPT"),
     CODE("Code", "</>"),
     SHOPPING("Shopping", "SHOP"),
-    MAP("Map", "MAP"),
-    RECEIPT("Receipt", "RCPT"),
-    CHAT("Chat", "CHAT"),
-    YOUTUBE("YouTube", "PLAY"),
+    TRAVEL("Travel", "TRIP"),
+    FOOD("Food", "FOOD"),
     DOCUMENT("Document", "DOC"),
+    YOUTUBE("YouTube", "PLAY"),
     UNKNOWN("Unknown", "SNAP"),
 }
 

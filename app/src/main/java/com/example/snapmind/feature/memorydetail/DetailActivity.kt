@@ -140,10 +140,11 @@ class DetailActivity : AppCompatActivity() {
         when (this) {
             MemoryCategory.CODE -> R.drawable.bg_thumbnail_code
             MemoryCategory.SHOPPING -> R.drawable.bg_thumbnail_shopping
-            MemoryCategory.MAP -> R.drawable.bg_thumbnail_map
             MemoryCategory.RECEIPT -> R.drawable.bg_thumbnail_receipt
             MemoryCategory.CHAT -> R.drawable.bg_thumbnail_chat
             MemoryCategory.YOUTUBE -> R.drawable.bg_thumbnail_youtube
+            MemoryCategory.TRAVEL,
+            MemoryCategory.FOOD,
             MemoryCategory.DOCUMENT,
             MemoryCategory.UNKNOWN -> R.drawable.bg_thumbnail_receipt
         }

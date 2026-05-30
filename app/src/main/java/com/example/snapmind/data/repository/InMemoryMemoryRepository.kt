@@ -175,69 +175,72 @@ class InMemoryMemoryRepository @Inject constructor(
         }
 
     private fun seedMemories(): List<MemoryItem> {
-        val now = System.currentTimeMillis()
-        return listOf(
-            MemoryItem(
-                id = 1,
-                category = MemoryCategory.CODE,
-                memo = "React hydration error - 아침 회의 전에 원인 확인",
-                ocrText = "Hydration failed because the initial UI does not match.",
-                tags = listOf("#React_Error", "#BugFix"),
-                createdAtMillis = now - 2 * HOUR,
-                processingStatus = ProcessingStatus.PROCESSING,
-                isFavorite = true,
-                geminiSuggestion = "내일 회의 전 수정할 React 오류를 저장했습니다.",
-            ),
-            MemoryItem(
-                id = 2,
-                category = MemoryCategory.SHOPPING,
-                memo = "흰색 운동화 사이즈 280 재입고 확인",
-                ocrText = "White sneakers size 10 availability",
-                tags = listOf("#To_buy_later"),
-                createdAtMillis = now - 5 * HOUR,
-                processingStatus = ProcessingStatus.DONE,
-            ),
-            MemoryItem(
-                id = 3,
-                category = MemoryCategory.MAP,
-                memo = "강남 카페 위치 - 주말에 방문",
-                ocrText = "Gangnam coffee shop",
-                tags = listOf("#Weekend", "#Cafe"),
-                createdAtMillis = now - 26 * HOUR,
-                processingStatus = ProcessingStatus.DONE,
-                isFavorite = true,
-            ),
-            MemoryItem(
-                id = 4,
-                category = MemoryCategory.RECEIPT,
-                memo = "점심 영수증 48,500원 - 비용 처리",
-                ocrText = "Business lunch receipt 48,500 KRW",
-                tags = listOf("#Expense", "#Receipt"),
-                createdAtMillis = now - 30 * HOUR,
-                processingStatus = ProcessingStatus.ERROR,
-            ),
-            MemoryItem(
-                id = 5,
-                category = MemoryCategory.CHAT,
-                memo = "프로젝트 제안 답장 금요일까지",
-                ocrText = "Project proposal reply by Friday",
-                tags = listOf("#Action_Required"),
-                createdAtMillis = now - 2 * DAY,
-                processingStatus = ProcessingStatus.DONE,
-                isFavorite = true,
-            ),
-            MemoryItem(
-                id = 6,
-                category = MemoryCategory.YOUTUBE,
-                memo = "Compose 애니메이션 강의 다시 보기",
-                ocrText = "Jetpack Compose animation tutorial",
-                tags = listOf("#Study", "#Android"),
-                createdAtMillis = now - 3 * DAY,
-                processingStatus = ProcessingStatus.DONE,
-                youtubeTitle = "Jetpack Compose animation tutorial",
-                youtubeUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            ),
-        )
+        // Phase 2부터 Room 기반 RoomMemoryRepository를 사용. 시드 데이터는 빈 DB 정책으로 비활성.
+        // 아래 하드코딩 시드는 Phase 1 InMemory 단계의 픽스처로, 참고용으로 보존.
+        // val now = System.currentTimeMillis()
+        // return listOf(
+        //     MemoryItem(
+        //         id = 1,
+        //         category = MemoryCategory.CODE,
+        //         memo = "React hydration error - 아침 회의 전에 원인 확인",
+        //         ocrText = "Hydration failed because the initial UI does not match.",
+        //         tags = listOf("#React_Error", "#BugFix"),
+        //         createdAtMillis = now - 2 * HOUR,
+        //         processingStatus = ProcessingStatus.PROCESSING,
+        //         isFavorite = true,
+        //         geminiSuggestion = "내일 회의 전 수정할 React 오류를 저장했습니다.",
+        //     ),
+        //     MemoryItem(
+        //         id = 2,
+        //         category = MemoryCategory.SHOPPING,
+        //         memo = "흰색 운동화 사이즈 280 재입고 확인",
+        //         ocrText = "White sneakers size 10 availability",
+        //         tags = listOf("#To_buy_later"),
+        //         createdAtMillis = now - 5 * HOUR,
+        //         processingStatus = ProcessingStatus.DONE,
+        //     ),
+        //     MemoryItem(
+        //         id = 3,
+        //         category = MemoryCategory.TRAVEL,
+        //         memo = "강남 카페 위치 - 주말에 방문",
+        //         ocrText = "Gangnam coffee shop",
+        //         tags = listOf("#Weekend", "#Cafe"),
+        //         createdAtMillis = now - 26 * HOUR,
+        //         processingStatus = ProcessingStatus.DONE,
+        //         isFavorite = true,
+        //     ),
+        //     MemoryItem(
+        //         id = 4,
+        //         category = MemoryCategory.RECEIPT,
+        //         memo = "점심 영수증 48,500원 - 비용 처리",
+        //         ocrText = "Business lunch receipt 48,500 KRW",
+        //         tags = listOf("#Expense", "#Receipt"),
+        //         createdAtMillis = now - 30 * HOUR,
+        //         processingStatus = ProcessingStatus.ERROR,
+        //     ),
+        //     MemoryItem(
+        //         id = 5,
+        //         category = MemoryCategory.CHAT,
+        //         memo = "프로젝트 제안 답장 금요일까지",
+        //         ocrText = "Project proposal reply by Friday",
+        //         tags = listOf("#Action_Required"),
+        //         createdAtMillis = now - 2 * DAY,
+        //         processingStatus = ProcessingStatus.DONE,
+        //         isFavorite = true,
+        //     ),
+        //     MemoryItem(
+        //         id = 6,
+        //         category = MemoryCategory.YOUTUBE,
+        //         memo = "Compose 애니메이션 강의 다시 보기",
+        //         ocrText = "Jetpack Compose animation tutorial",
+        //         tags = listOf("#Study", "#Android"),
+        //         createdAtMillis = now - 3 * DAY,
+        //         processingStatus = ProcessingStatus.DONE,
+        //         youtubeTitle = "Jetpack Compose animation tutorial",
+        //         youtubeUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        //     ),
+        // )
+        return emptyList()
     }
 
     private companion object {
