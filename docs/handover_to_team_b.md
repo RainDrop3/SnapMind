@@ -64,5 +64,20 @@
 - `res/xml/file_paths.xml`, `res/menu/menu_trash.xml` 신규. 다른 곳에서 같은 이름 쓰지 말 것.
 - 영구 삭제는 비가역 — UI에서 확인 다이얼로그 항상 띄움. B가 다른 진입점에서 호출할 경우 동일 패턴 권장.
 - PDF 생성은 활성 메모리 전체 대상. 선택 기능은 미구현(Phase 5/6에서 B 또는 A가 추가 가능). 큰 메모리 갯수(100+)에서는 수 초 걸릴 수 있음 — 진행 인디케이터 권장.
+
+---
+
+## Phase 5 — 상세 화면 데이터 로직
+
+**B 코드 직접 변경 (사용자 승인 하 예외, 1개 Activity):**
+
+1. `feature/memorydetail/DetailActivity.kt` — `MemoryRepository` 직접 호출 제거, 신규 `DetailViewModel`로 위임. `SavedStateHandle` 기반으로 회전/프로세스 사망 후에도 메모 입력 내용 유지. EditText는 양방향 안전 바인딩(피드백 루프 방지). 외부 UI/레이아웃 변경 없음.
+
+**알아둘 점:**
+
+- 저장 버튼(`saveMemoButton`)은 미저장 변경분이 있을 때만 enable. 이전엔 항상 enable였음. 명시적 "수정 중" 라벨은 미추가 — B가 UI 폴리싱에서 hint text나 아이콘 색상 변경으로 보강 가능.
+- 다른 화면(예: SearchActivity)에서 메모리를 수정하거나 삭제하면 DetailActivity가 열려 있을 때도 즉시 반영됨 (Flow 구독). 삭제 시 자동으로 finish().
+- Gemini 추천을 수락하면 메모 본문이 추천 텍스트로 덮어쓰이고 미저장 draft도 자동 clear.
+- `DetailViewModel`은 `@HiltViewModel` + `SavedStateHandle`만 사용 (Intent 직접 접근 안 함). 다른 진입점(예: 알림 탭) 만들 때 `DetailActivity.createIntent(context, id)` 그대로 사용 가능.
 - Application 클래스가 `Configuration.Provider`로 변경됨 + AndroidManifest에 `WorkManagerInitializer` 자동 초기화 제거 provider 추가됨. **B가 별도로 WorkManager 초기화 코드를 추가하면 안 됨** — 자동으로 `HiltWorkerFactory` 기반 설정 사용됨.
 - 실패한 처리에 대한 retry 액션 UI(상세 화면 등)는 Phase 5/6에서 함께 설계 예정. 현재는 import 시점 1회 실행만 됨.
