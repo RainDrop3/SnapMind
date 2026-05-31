@@ -81,3 +81,20 @@
 - `DetailViewModel`은 `@HiltViewModel` + `SavedStateHandle`만 사용 (Intent 직접 접근 안 함). 다른 진입점(예: 알림 탭) 만들 때 `DetailActivity.createIntent(context, id)` 그대로 사용 가능.
 - Application 클래스가 `Configuration.Provider`로 변경됨 + AndroidManifest에 `WorkManagerInitializer` 자동 초기화 제거 provider 추가됨. **B가 별도로 WorkManager 초기화 코드를 추가하면 안 됨** — 자동으로 `HiltWorkerFactory` 기반 설정 사용됨.
 - 실패한 처리에 대한 retry 액션 UI(상세 화면 등)는 Phase 5/6에서 함께 설계 예정. 현재는 import 시점 1회 실행만 됨.
+
+---
+
+## Phase 6 — 안정성 · 설정
+
+**B 코드 직접 변경 (사용자 승인 하 예외, 2개 파일):**
+
+1. `feature/settings/SettingsFragment.kt` — 3개 스위치(`visionSwitch`, `geminiSwitch`, `youtubeSwitch`)가 이제 `AppPreferences`와 연동. 스위치 상태가 앱 재시작 후에도 유지됨.
+2. `res/layout/fragment_settings.xml` — `clearPdfCacheButton` (PDF 캐시 정리 버튼) 추가.
+
+**알아둘 점:**
+
+- `core/settings/AppPreferences` 신규. B의 Phase 3 API 워커에서 `prefs.visionEnabled` / `prefs.geminiEnabled` / `prefs.youtubeEnabled`를 읽어 각 API 호출을 게이팅할 수 있음. `observe(): Flow<RemoteFeatureFlags>`도 제공하므로 설정 변경에 반응적으로 동작 가능.
+- `core/image/BitmapDecoder` 신규. B가 이미지 디코드가 필요한 곳에서 재사용 가능 (`BitmapDecoder.decodeSampled(contentResolver, uri, targetW, targetH)`).
+- `PdfExporter.EXPORT_SUBDIR_NAME`이 public const로 공개됨. B가 PDF 캐시 경로를 참조해야 할 경우 사용.
+- `ImageImporter`에서 `SecurityException` → `AppError.PermissionDenied`, `FileNotFoundException` → `AppError.FileNotFound`로 분리 처리. B의 ShareActivity에서 import 실패 처리 시 참고.
+- `RoomMemoryRepository.scope`에 `CoroutineExceptionHandler`가 추가됨. fire-and-forget 메서드에서 발생한 예외가 Logcat에 기록되지만 앱 크래시 없이 계속 동작.

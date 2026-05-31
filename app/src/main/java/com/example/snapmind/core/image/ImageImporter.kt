@@ -60,7 +60,11 @@ class ImageImporter @Inject constructor(
             } ?: return@withContext AppResult.Error(AppError.FileNotFound)
         }.getOrElse { error ->
             targetFile.delete()
-            return@withContext AppResult.Error(AppError.Unknown(error.message.orEmpty()))
+            return@withContext when (error) {
+                is SecurityException -> AppResult.Error(AppError.PermissionDenied)
+                is java.io.FileNotFoundException -> AppResult.Error(AppError.FileNotFound)
+                else -> AppResult.Error(AppError.Unknown(error.message.orEmpty()))
+            }
         }
 
         if (byteCount <= 0L) {

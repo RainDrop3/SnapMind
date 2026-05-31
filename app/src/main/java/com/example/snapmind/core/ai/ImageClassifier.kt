@@ -2,8 +2,8 @@ package com.example.snapmind.core.ai
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import com.example.snapmind.core.image.BitmapDecoder
 import android.net.Uri
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
@@ -124,13 +124,16 @@ class ImageClassifier @Inject constructor(
     }
 
     private fun loadBitmap(uri: Uri): Bitmap {
-        val stream = context.contentResolver.openInputStream(uri)
-            ?: throw IOException("Cannot open $uri")
-        val raw = stream.use { BitmapFactory.decodeStream(it) }
-            ?: throw IOException("Decode failed for $uri")
+        val raw = BitmapDecoder.decodeSampled(
+            contentResolver = context.contentResolver,
+            uri = uri,
+            targetWidth = INPUT_SIZE,
+            targetHeight = INPUT_SIZE,
+        ) ?: throw IOException("Decode failed for $uri")
         val rotation = readExifRotation(uri)
         val rotated = if (rotation == 0) raw else applyRotation(raw, rotation)
-        return Bitmap.createScaledBitmap(rotated, INPUT_SIZE, INPUT_SIZE, true)
+        return if (rotated.width == INPUT_SIZE && rotated.height == INPUT_SIZE) rotated
+        else Bitmap.createScaledBitmap(rotated, INPUT_SIZE, INPUT_SIZE, true)
     }
 
     private fun readExifRotation(uri: Uri): Int = runCatching {
