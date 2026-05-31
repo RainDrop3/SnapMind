@@ -57,6 +57,15 @@
             android:textColor="@color/snap_text"
             app:useMaterialThemeColors="true" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/clearPdfCacheButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="PDF 캐시 정리"
+            android:textColor="@color/snap_text" />
+
         <TextView
             android:id="@+id/storageText"
             android:layout_width="match_parent"

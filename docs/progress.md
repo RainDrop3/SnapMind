@@ -432,26 +432,6 @@ raw.split(\\s+).joinToString(" ") { "\"${it.replace("\"","")}\"*" }
 - `res/xml/file_paths.xml` — FileProvider 경로 정의
 - `res/menu/menu_trash.xml` — 휴지통 비우기 메뉴
 
-## 다음 Phase에서 해야 할 일 (팀원 A)
-
-### Phase 5 (상세 화면 데이터 로직)
-- `#25` DetailActivity 이미지 원본 + OCR 텍스트 표시 — 도메인 매핑은 이미 반영. ViewModel만 작성
-- `#26` 분류 카테고리 + 태그 표시 — 동일
-- `#28` 메모 작성/수정 + DB 연동 — `updateMemo` 이미 구현됨. ViewModel + 양방향 바인딩
-
-### Phase 6 (안정성)
-- `#37` Coroutine 예외 처리 — RoomMemoryRepository `scope`에 `CoroutineExceptionHandler`
-- `#38` 대용량 이미지 OOM — `ImageImporter`/`PdfExporter` 디코드 시 inSampleSize 적용 (PdfExporter는 이미 적용됨)
-- `#39` URI 권한 만료 — import 시점 즉시 복사하므로 영향 없음
-- `#36` 설정 화면 — 설정 항목(예: 자동 OCR 활성화, 캐시 정리) 정의 필요
-
-### 알아둘 점
-- 영구 삭제는 비가역. UI 확인 다이얼로그 필수
-- PDF 캐시 파일은 자동 정리 안 됨 (Android의 cache 자동 정리에 의존). Phase 6에서 명시적 cleanup 워커 추가 고려
-- SearchActivity는 이제 ViewModel을 사용하므로 `memoryRepository.tags()` / `categoryCounts()` 호출 횟수가 줄어듬 (StateFlow 캐시 1회)
-- FTS 검색은 한 번에 매칭 ID만 받아오고 나머지는 in-memory snapshot에서 lookup — 5,000개 메모리 가정에서도 즉답 가능
-- TF 버전 차이로 op version이 또 올라가면 LiteRT 1.0.1 → 1.1.x/1.2.x로 한 줄만 올리면 됨
-
 ---
 
 # Phase 5 — 상세 화면 데이터 로직 완료
@@ -518,15 +498,90 @@ raw.split(\\s+).joinToString(" ") { "\"${it.replace("\"","")}\"*" }
 ### 신규 (1)
 - `feature/memorydetail/DetailViewModel.kt` — SavedStateHandle + Flow 합성
 
-## 다음 Phase에서 해야 할 일 (팀원 A)
+---
 
-### Phase 6 (안정성 · 설정)
-- `#37` Coroutine 전역 예외 처리 — `RoomMemoryRepository.scope`에 `CoroutineExceptionHandler` 부착 + WorkManager Worker 실패 정책 통일
-- `#38` 대용량 이미지 OOM 방지 — `ImageImporter`/`ImageClassifier`에 `BitmapFactory.Options.inSampleSize` 적용 (PdfExporter는 이미 inSampleSize=2 + RGB_565 적용됨)
-- `#39` URI 권한 만료 — Phase 2에서 import 시점에 즉시 복사하므로 영향 없음. 검증만 필요 (예: 외부 URI grant 만료 시 fallback 경로 확인)
-- `#36` 설정 화면 — 설정 항목 정의 + DataStore/SharedPreferences 도입 + 설정 적용 흐름
+# Phase 6 — 안정성 · 설정 완료
 
-### 알아둘 점
-- DetailActivity는 이제 회전/프로세스 사망 후에도 편집 중이던 메모를 잃지 않음
-- 저장 버튼은 미저장 변경분이 있을 때만 활성. UI에 명시적 "수정 중" 표시는 없음 (Phase 6/추가 UI 작업에서 보강 가능)
-- ViewModel의 `bind()`는 Activity onCreate마다 호출되지만 동일 ID면 idempotent — 따라서 다른 Detail로 navigate는 새 Activity 인스턴스가 새 VM 생성
+## 작업 범위
+
+`docs/todos/team_todo.md`의 **Phase 6 — 팀원 A** 4개 항목 모두 완료:
+
+- [x] `#37` Coroutine 전역 예외 처리 (CoroutineExceptionHandler)
+- [x] `#38` 대용량 이미지 OOM 방지 (BitmapFactory.Options)
+- [x] `#39` URI 권한 만료 대응 검증
+- [x] `#36` 설정 화면 구현
+
+근거 명세:
+- `docs/architecture/privacy-security.md` — URI/저장소 정책
+- `docs/specs/permission-storage-spec.md` — MIME / 권한 처리
+- `docs/specs/navigation-flow.md` — Settings 라우트
+
+## 주요 결정 사항
+
+### 1. #37 — RoomMemoryRepository 전역 예외 핸들러
+
+`RoomMemoryRepository.scope`에 `CoroutineExceptionHandler` 추가. fire-and-forget 메서드(`toggleFavorite`, `updateMemo`, `softDelete` 등)에서 던지는 미처리 예외를 `Log.e(TAG, ...)`로 기록 → 앱 크래시 방지. WorkManager 워커는 이미 자체 try/catch로 status를 FAILED 마킹하므로 별도 핸들러 불요.
+
+### 2. #38 — BitmapDecoder 유틸 + ImageClassifier OOM 가드
+
+`core/image/BitmapDecoder` 신규:
+- 1st pass: `inJustDecodeBounds = true`로 원본 크기 확인 후 스트림 닫음
+- `inSampleSize` 자동 계산 (목표 해상도 대비 2의 거듭제곱)
+- 2nd pass: **URI를 다시 열어** 새 스트림으로 실제 decode — 스트림 소진 버그 방지
+- `OutOfMemoryError` / `Exception` 잡아 null 반환 — 호출자가 graceful fallback 가능
+
+`ImageClassifier.loadBitmap`은 기존 `BitmapFactory.decodeStream` 직접 호출을 `BitmapDecoder.decodeSampled(contentResolver, uri, INPUT_SIZE, INPUT_SIZE, ARGB_8888)`로 교체. null 반환 시 `IOException`으로 명시 변환(NPE 방지). EfficientNet 정확도를 위해 ARGB_8888 유지.
+
+> ⚠️ 이전 Phase 6 시도에서 이미지 업로드 후 ERROR가 발생한 원인이 단일 스트림 재사용(stream exhaustion) 버그였음. URI 기반 두 번 열기로 수정.
+
+### 3. #39 — URI 권한 만료 / revoke 핸들링
+
+`ImageImporter`의 `runCatching` 예외 분기 세분화:
+- `SecurityException` → `AppError.PermissionDenied` (URI grant 만료/revoke 또는 권한 부재)
+- `FileNotFoundException` → `AppError.FileNotFound` (source URI 삭제됨)
+- 그 외 → `AppError.Unknown` + 기존 동작 유지
+
+기본 정책은 변함없음 — `importImage`는 호출 즉시 외부 URI를 읽어 앱 내부에 복사하므로 import 이후 권한 만료 영향 없음.
+
+### 4. #36 — AppPreferences + SettingsFragment 연결
+
+`core/settings/AppPreferences` 신규 (SharedPreferences 래퍼):
+- 3개 boolean 플래그: `visionEnabled`, `geminiEnabled`, `youtubeEnabled` (기본 모두 true)
+- `current()` 동기 스냅샷 + `observe(): Flow<RemoteFeatureFlags>` (callbackFlow)
+- `clearPdfCache(): Long` — `cacheDir/exports/`의 PDF 파일 모두 삭제 + 회수 바이트 반환
+
+`SettingsFragment` (B 예외) 갱신:
+- 3개 스위치(`visionSwitch`, `geminiSwitch`, `youtubeSwitch`)를 prefs와 양방향 안전 바인딩 (`setOnCheckedChangeListener(null)` → `isChecked` → 재등록 패턴으로 피드백 루프 방지)
+- `clearPdfCacheButton` 신규 (layout 수정) — 누르면 캐시 삭제 + Toast 알림
+
+설정 적용 흐름: 현재는 prefs 저장만 수행. 워커/파이프라인이 prefs를 읽어 Vision/Gemini/YouTube 동작을 게이팅하는 건 Team B의 Phase 3 API 작업(#7/#8/#10)이 활성화될 때 의미.
+
+## 추가/수정한 파일 (총 8)
+
+### 수정 (6)
+- `data/repository/RoomMemoryRepository.kt` — `CoroutineExceptionHandler` + `TAG`
+- `core/image/ImageImporter.kt` — SecurityException / FileNotFoundException 분리 처리
+- `core/ai/ImageClassifier.kt` — `BitmapDecoder.decodeSampled` 호출로 교체 (BitmapFactory 직접 의존 제거)
+- `core/pdf/PdfExporter.kt` — `EXPORT_SUBDIR_NAME` 공개화 (AppPreferences 캐시 정리에서 참조)
+- `feature/settings/SettingsFragment.kt` — 스위치 바인딩 + 캐시 정리 (B 예외)
+- `res/layout/fragment_settings.xml` — `clearPdfCacheButton` 추가 (B 예외)
+
+### 신규 (2)
+- `core/image/BitmapDecoder.kt` — inSampleSize + OOM 가드 유틸 (URI 기반 2-pass decode)
+- `core/settings/AppPreferences.kt` — SharedPreferences 래퍼 + Flow 노출 + PDF 캐시 정리
+
+## 🎉 팀원 A 전체 Phase 완료 (20/20)
+
+| Phase | 완료 항목 |
+|---|---|
+| Phase 1 — DB 설계 | #11, #12, #14 |
+| Phase 2 — 이미지 수집 | #3, #13 |
+| Phase 3 — AI 파이프라인 | #5, #4, #6, #9 |
+| Phase 4 — 검색/휴지통/PDF | #19, #20, #32, #33 |
+| Phase 5 — 상세 화면 데이터 | #25, #26, #28 |
+| Phase 6 — 안정성/설정 | #37, #38, #39, #36 |
+
+남은 외부 작업:
+- Team B의 #7/#8/#10 API 작업 활성화 시 AppPreferences 토글을 워커에서 읽어 게이팅하는 통합 (소규모)
+- 통합 테스트 + 데모 시연 (공동 Phase 6)
+- Phase 6 #41 Room DB 마이그레이션 관리는 Team B 항목

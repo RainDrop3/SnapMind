@@ -30,6 +30,8 @@ import com.example.snapmind.data.work.LocalMemoryProcessingWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import android.util.Log
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,7 +60,10 @@ class RoomMemoryRepository @Inject constructor(
     private val dispatcherProvider: DispatcherProvider,
 ) : MemoryRepository {
 
-    private val scope = CoroutineScope(SupervisorJob() + dispatcherProvider.io)
+    private val scope = CoroutineScope(
+        SupervisorJob() + dispatcherProvider.io +
+            CoroutineExceptionHandler { _, t -> Log.e(TAG, "Unhandled exception in repository scope", t) },
+    )
 
     private val _memories = MutableStateFlow<List<MemoryItem>>(emptyList())
     override val memories: StateFlow<List<MemoryItem>> = _memories.asStateFlow()
@@ -340,6 +345,7 @@ class RoomMemoryRepository @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "RoomMemoryRepository"
         private const val DEFAULT_MEMO_BODY = "새 이미지 분석을 준비 중입니다."
         private const val SEED_IMPORT_TAG = "Imported"
 

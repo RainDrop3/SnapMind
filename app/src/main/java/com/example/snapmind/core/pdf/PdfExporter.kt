@@ -41,7 +41,7 @@ class PdfExporter @Inject constructor(
                     drawPage(pdf, memory, pageNumber = index + 1, total = memories.size)
                 }
 
-                val targetDir = File(context.cacheDir, EXPORT_SUBDIR).apply { mkdirs() }
+                val targetDir = File(context.cacheDir, EXPORT_SUBDIR_NAME).apply { mkdirs() }
                 val fileName = "snapmind_export_${System.currentTimeMillis()}.pdf"
                 val file = File(targetDir, fileName)
                 FileOutputStream(file).use { pdf.writeTo(it) }
@@ -171,7 +171,7 @@ class PdfExporter @Inject constructor(
         private const val PAGE_WIDTH = 595      // A4 width in points
         private const val PAGE_HEIGHT = 842     // A4 height in points
         private const val MARGIN = 36f
-        private const val EXPORT_SUBDIR = "exports"
+        const val EXPORT_SUBDIR_NAME = "exports"
         const val PROVIDER_AUTHORITY = "com.example.snapmind.fileprovider"
     }
 }
