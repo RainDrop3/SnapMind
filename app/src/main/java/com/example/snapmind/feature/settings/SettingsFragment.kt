@@ -3,6 +3,7 @@ package com.example.snapmind.feature.settings
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
+import androidx.core.widget.doOnTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
@@ -29,6 +30,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         _binding = FragmentSettingsBinding.bind(view)
 
         bindSwitches()
+        bindApiKeys()
 
         binding.clearPdfCacheButton.setOnClickListener {
             val freed = prefs.clearPdfCache()
@@ -56,6 +58,17 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         binding.visionSwitch.setOnCheckedChangeListener { _, checked -> prefs.visionEnabled = checked }
         binding.geminiSwitch.setOnCheckedChangeListener { _, checked -> prefs.geminiEnabled = checked }
         binding.youtubeSwitch.setOnCheckedChangeListener { _, checked -> prefs.youtubeEnabled = checked }
+    }
+
+    private fun bindApiKeys() = with(binding) {
+        val flags = prefs.current()
+        visionApiKeyEditText.setText(flags.visionApiKey)
+        geminiApiKeyEditText.setText(flags.geminiApiKey)
+        youtubeApiKeyEditText.setText(flags.youtubeApiKey)
+
+        visionApiKeyEditText.doOnTextChanged { text, _, _, _ -> prefs.visionApiKey = text?.toString().orEmpty() }
+        geminiApiKeyEditText.doOnTextChanged { text, _, _, _ -> prefs.geminiApiKey = text?.toString().orEmpty() }
+        youtubeApiKeyEditText.doOnTextChanged { text, _, _, _ -> prefs.youtubeApiKey = text?.toString().orEmpty() }
     }
 
     private fun setSafe(switch: SwitchMaterial, checked: Boolean) {
