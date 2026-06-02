@@ -2,6 +2,7 @@ package com.example.snapmind.feature.home
 
 import android.net.Uri
 import android.text.format.DateUtils
+import android.view.View
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
@@ -18,8 +19,18 @@ import com.example.snapmind.databinding.ItemMemoryCardBinding
 
 class MemoryGridAdapter(
     private val onMemoryClick: (MemoryItem) -> Unit,
-    private val onFavoriteClick: (MemoryItem) -> Unit,
+    private val onActionClick: (MemoryItem) -> Unit,
+    private val onMemoryLongClick: (MemoryItem) -> Boolean = { false },
+    private val actionMode: CardActionMode = CardActionMode.FAVORITE,
 ) : ListAdapter<MemoryItem, MemoryGridAdapter.MemoryViewHolder>(MemoryDiff) {
+    private var selectedIds: Set<Long> = emptySet()
+
+    fun setSelectedIds(ids: Set<Long>) {
+        val next = ids.toSet()
+        if (selectedIds == next) return
+        selectedIds = next
+        notifyDataSetChanged()
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MemoryViewHolder {
         val binding = ItemMemoryCardBinding.inflate(
@@ -27,22 +38,31 @@ class MemoryGridAdapter(
             parent,
             false,
         )
-        return MemoryViewHolder(binding, onMemoryClick, onFavoriteClick)
+        return MemoryViewHolder(binding, onMemoryClick, onActionClick, onMemoryLongClick, actionMode)
     }
 
     override fun onBindViewHolder(holder: MemoryViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        val item = getItem(position)
+        holder.bind(item, selectedIds.contains(item.id))
+    }
+
+    enum class CardActionMode {
+        FAVORITE,
+        DELETE,
     }
 
     class MemoryViewHolder(
         private val binding: ItemMemoryCardBinding,
         private val onMemoryClick: (MemoryItem) -> Unit,
-        private val onFavoriteClick: (MemoryItem) -> Unit,
+        private val onActionClick: (MemoryItem) -> Unit,
+        private val onMemoryLongClick: (MemoryItem) -> Boolean,
+        private val actionMode: CardActionMode,
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(item: MemoryItem) = with(binding) {
+        fun bind(item: MemoryItem, selected: Boolean) = with(binding) {
             root.setOnClickListener { onMemoryClick(item) }
-            favoriteButton.setOnClickListener { onFavoriteClick(item) }
+            root.setOnLongClickListener { onMemoryLongClick(item) }
+            favoriteButton.setOnClickListener { onActionClick(item) }
             categoryBadge.text = item.category.displayName
             memoText.text = item.memo.ifBlank { "메모가 아직 없어요. 상세 화면에서 저장 이유를 남겨보세요." }
             timeText.text = DateUtils.getRelativeTimeSpanString(
@@ -53,12 +73,23 @@ class MemoryGridAdapter(
             tagText.text = item.tags.firstOrNull().orEmpty()
             statusBadge.text = item.processingStatus.displayText()
             statusBadge.setBackgroundResource(item.processingStatus.badgeBackground())
+            favoriteButton.setImageResource(actionMode.iconRes())
+            favoriteButton.contentDescription = actionMode.contentDescription()
             ImageViewCompat.setImageTintList(
                 favoriteButton,
                 ContextCompat.getColorStateList(
                     favoriteButton.context,
-                    if (item.isFavorite) R.color.snap_rose else R.color.snap_text_secondary,
+                    actionMode.tintRes(item),
                 ),
+            )
+            selectionOverlay.visibility = if (selected) View.VISIBLE else View.GONE
+            selectionCheck.visibility = if (selected) View.VISIBLE else View.GONE
+            root.strokeColor = ContextCompat.getColor(
+                root.context,
+                if (selected) R.color.snap_primary else R.color.snap_outline,
+            )
+            root.strokeWidth = root.resources.getDimensionPixelSize(
+                if (selected) R.dimen.memory_card_selected_stroke else R.dimen.memory_card_default_stroke,
             )
 
             thumbFrame.setBackgroundResource(item.category.thumbnailBackground())
@@ -100,6 +131,24 @@ class MemoryGridAdapter(
                 MemoryCategory.FOOD,
                 MemoryCategory.DOCUMENT,
                 MemoryCategory.UNKNOWN -> R.drawable.bg_thumbnail_receipt
+            }
+
+        private fun CardActionMode.iconRes(): Int =
+            when (this) {
+                CardActionMode.FAVORITE -> R.drawable.ic_heart
+                CardActionMode.DELETE -> R.drawable.ic_trash
+            }
+
+        private fun CardActionMode.contentDescription(): String =
+            when (this) {
+                CardActionMode.FAVORITE -> "즐겨찾기 토글"
+                CardActionMode.DELETE -> "영구 삭제"
+            }
+
+        private fun CardActionMode.tintRes(item: MemoryItem): Int =
+            when (this) {
+                CardActionMode.FAVORITE -> if (item.isFavorite) R.color.snap_rose else R.color.snap_text_secondary
+                CardActionMode.DELETE -> R.color.snap_rose
             }
     }
 

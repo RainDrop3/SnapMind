@@ -17,6 +17,57 @@
         app:title="휴지통"
         app:titleTextColor="@color/snap_text" />
 
+    <LinearLayout
+        android:id="@+id/trashSelectionBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/snap_surface"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="8dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <TextView
+            android:id="@+id/trashSelectedCountText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="@color/snap_text"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            tools:text="2개 선택" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/restoreSelectedButton"
+            style="@style/Widget.Material3.Button.TextButton.Icon"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="복원"
+            android:textColor="@color/snap_text"
+            app:icon="@drawable/ic_check"
+            app:iconTint="@color/snap_text" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/permanentDeleteSelectedButton"
+            style="@style/Widget.Material3.Button.TextButton.Icon"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="영구삭제"
+            android:textColor="@color/snap_rose"
+            app:icon="@drawable/ic_trash"
+            app:iconTint="@color/snap_rose" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/clearTrashSelectionButton"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="해제"
+            android:textColor="@color/snap_text_secondary" />
+    </LinearLayout>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/trashRecyclerView"
         android:layout_width="match_parent"

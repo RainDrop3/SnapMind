@@ -3,6 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
         android:id="@+id/action_empty_trash"
+        android:contentDescription="휴지통 비우기"
+        android:icon="@drawable/ic_trash"
         android:title="휴지통 비우기"
         app:showAsAction="ifRoom" />
 </menu>

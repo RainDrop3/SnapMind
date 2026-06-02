@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -20,6 +21,57 @@
             android:paddingBottom="4dp"
             android:visibility="gone"
             tools:visibility="visible" />
+
+        <LinearLayout
+            android:id="@+id/selectionBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/snap_surface"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="8dp"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <TextView
+                android:id="@+id/selectedCountText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="@color/snap_text"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                tools:text="2개 선택" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/exportSelectedPdfButton"
+                style="@style/Widget.Material3.Button.TextButton.Icon"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="PDF"
+                android:textColor="@color/snap_text"
+                app:icon="@drawable/ic_file_download"
+                app:iconTint="@color/snap_text" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/deleteSelectedButton"
+                style="@style/Widget.Material3.Button.TextButton.Icon"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="삭제"
+                android:textColor="@color/snap_rose"
+                app:icon="@drawable/ic_trash"
+                app:iconTint="@color/snap_rose" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/clearSelectionButton"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="해제"
+                android:textColor="@color/snap_text_secondary" />
+        </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/memoryRecyclerView"
