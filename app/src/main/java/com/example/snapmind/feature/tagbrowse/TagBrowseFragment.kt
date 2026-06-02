@@ -42,27 +42,53 @@ class TagBrowseFragment : Fragment(R.layout.fragment_tag_browse) {
     }
 
     private fun render(state: MainUiState) {
+        val noFilter = state.tagBrowseSelectedCategory == null && state.tagBrowseSelectedTag == null
+
+        // 카테고리 행 (위) — '전체' + 모델 분류 카테고리들.
+        binding.categoryChipGroup.removeAllViews()
+        binding.categoryChipGroup.addChip(text = "전체", selected = noFilter) {
+            viewModel.clearTagBrowseFilters()
+        }
+        state.categories.forEach { categoryCount ->
+            val selected = state.tagBrowseSelectedCategory == categoryCount.category
+            binding.categoryChipGroup.addChip(
+                text = "${categoryCount.category.displayName} ${categoryCount.count}",
+                selected = selected,
+            ) {
+                if (selected) viewModel.clearTagBrowseFilters() else viewModel.applyTagBrowseCategory(categoryCount.category)
+            }
+        }
+
+        // 태그 행 (아래) — 사용자가 추가한 태그들.
         binding.tagChipGroup.removeAllViews()
-        binding.tagChipGroup.addView(
-            Chip(requireContext()).apply {
-                text = "전체"
+        state.tags.forEach { tag ->
+            val selected = state.tagBrowseSelectedTag?.equals(tag.name, ignoreCase = true) == true
+            binding.tagChipGroup.addChip(
+                text = "${tag.displayName} ${tag.count}",
+                selected = selected,
+            ) {
+                // 카테고리·태그는 동시 선택 불가. 같은 칩을 다시 누르면 필터 해제.
+                if (selected) viewModel.clearTagBrowseFilters() else viewModel.applyTagBrowseTag(tag.name)
+            }
+        }
+
+        adapter.submitList(state.tagBrowseItems)
+        binding.tagEmptyState.visibility = if (state.tagBrowseItems.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private inline fun com.google.android.material.chip.ChipGroup.addChip(
+        text: String,
+        selected: Boolean,
+        crossinline onClick: () -> Unit,
+    ) {
+        addView(
+            Chip(context).apply {
+                this.text = text
                 isCheckable = true
-                isChecked = state.selectedTag == null
-                setOnClickListener { viewModel.clearFilters() }
+                isChecked = selected
+                setOnClickListener { onClick() }
             },
         )
-        state.tags.forEach { tag ->
-            binding.tagChipGroup.addView(
-                Chip(requireContext()).apply {
-                    text = "${tag.displayName} ${tag.count}"
-                    isCheckable = true
-                    isChecked = state.selectedTag?.equals(tag.name, ignoreCase = true) == true
-                    setOnClickListener { viewModel.applyTagFilter(tag.name) }
-                },
-            )
-        }
-        adapter.submitList(state.tagItems)
-        binding.tagEmptyState.visibility = if (state.tagItems.isEmpty()) View.VISIBLE else View.GONE
     }
 
     override fun onDestroyView() {

@@ -11,62 +11,26 @@ import javax.inject.Singleton
 @Singleton
 class AutoTagRuleEngine @Inject constructor() {
 
+    /**
+     * 자동 태그는 **TFLite 분류 모델의 최상위(top-1) 결과 단 하나만** 사용한다.
+     * 모델이 confidence가 낮은 경우 `unknown`을 직접 출력하므로, 앱에서 별도의 시드 태그나
+     * Vision·OCR 파생 태그를 붙이지 않는다. (파라미터 시그니처는 호출부 호환을 위해 유지한다.)
+     */
     fun buildAssignments(
         ocrText: String?,
         classifications: List<ClassificationEntity>,
         visionLabels: List<VisionLabelEntity>,
     ): List<TagAssignmentRequest> {
-        val byNormalized = linkedMapOf<String, MutableSet<TagAssignmentSource>>()
-
-        fun add(rawName: String, source: TagAssignmentSource) {
-            val key = rawName.trim().lowercase().takeIf { it.isNotEmpty() } ?: return
-            byNormalized.getOrPut(key) { linkedSetOf() }.add(source)
-        }
-
-        classifications
-            .filter { it.label.isNotBlank() && it.label.lowercase() != UNKNOWN_LABEL }
-            .filter { it.confidence >= CONFIDENCE_FLOOR }
-            .forEach { add(it.label, TagAssignmentSource.TFLITE) }
-
-        visionLabels
-            .filter { it.label.isNotBlank() && it.score >= VISION_SCORE_THRESHOLD }
-            .forEach { add(it.label, TagAssignmentSource.VISION) }
-
-        if (!ocrText.isNullOrBlank()) {
-            URL_PATTERN.findAll(ocrText).map { it.value }.forEach { url ->
-                val host = extractHost(url) ?: return@forEach
-                add(host, TagAssignmentSource.OCR)
-            }
-            EMAIL_PATTERN.findAll(ocrText).forEach { add("email", TagAssignmentSource.OCR) }
-            if (KOREAN_PATTERN.containsMatchIn(ocrText)) add("korean", TagAssignmentSource.OCR)
-        }
-
-        return byNormalized.entries
-            .take(MAX_TAGS)
-            .map { (key, sources) ->
-                TagAssignmentRequest(
-                    rawName = key,
-                    assignedBy = TagAssignedBy.AUTO,
-                    sources = sources.toSet(),
-                )
-            }
-    }
-
-    private fun extractHost(url: String): String? {
-        val noScheme = url.substringAfter("://", url)
-        val hostPart = noScheme.substringBefore('/').substringBefore('?')
-        val host = hostPart.removePrefix("www.").substringBefore(':')
-        if (host.isBlank() || !host.contains('.')) return null
-        return host.lowercase()
-    }
-
-    companion object {
-        const val MAX_TAGS = 20
-        private const val VISION_SCORE_THRESHOLD = 0.80f
-        private const val CONFIDENCE_FLOOR = 0.50f
-        private const val UNKNOWN_LABEL = "unknown"
-        private val URL_PATTERN = Regex("https?://[\\w.\\-/?#=&%:+]+", RegexOption.IGNORE_CASE)
-        private val EMAIL_PATTERN = Regex("[\\w.+-]+@[\\w-]+\\.[\\w.-]+")
-        private val KOREAN_PATTERN = Regex("[가-힣]")
+        val top = classifications
+            .filter { it.label.isNotBlank() }
+            .minByOrNull { it.rank }
+            ?: return emptyList()
+        return listOf(
+            TagAssignmentRequest(
+                rawName = top.label.trim().lowercase(),
+                assignedBy = TagAssignedBy.AUTO,
+                sources = setOf(TagAssignmentSource.TFLITE),
+            ),
+        )
     }
 }

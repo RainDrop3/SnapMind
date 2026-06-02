@@ -26,6 +26,9 @@ interface TagDao {
     @Query("SELECT * FROM tags WHERE isArchived = 0 ORDER BY displayName ASC")
     fun observeActive(): Flow<List<TagEntity>>
 
+    @Query("SELECT * FROM tags WHERE isArchived = 0 ORDER BY displayName ASC")
+    suspend fun getAllActive(): List<TagEntity>
+
     @Query("DELETE FROM tags WHERE id = :tagId")
     suspend fun deleteById(tagId: Long): Int
 

@@ -22,6 +22,7 @@ import com.example.snapmind.data.local.entity.MemoEntity
 import com.example.snapmind.data.local.entity.MemoryItemEntity
 import com.example.snapmind.data.local.entity.TagAssignedBy
 import com.example.snapmind.data.local.entity.TagAssignmentSource
+import com.example.snapmind.data.local.entity.TagEntity
 import com.example.snapmind.data.model.CategoryCount
 import com.example.snapmind.data.model.MemoryCategory
 import com.example.snapmind.data.model.MemoryItem
@@ -181,15 +182,8 @@ class RoomMemoryRepository @Inject constructor(
             ),
         )
 
-        tagAssigner.assign(
-            memoryId = memoryId,
-            request = TagAssignmentRequest(
-                rawName = SEED_IMPORT_TAG,
-                assignedBy = TagAssignedBy.AUTO,
-                sources = setOf(TagAssignmentSource.SYSTEM),
-            ),
-            now = now,
-        )
+        // 자동 태그는 분석 후 AutoTaggingWorker가 모델 top-1 결과 하나만 부여한다.
+        // (가져오기 시점의 #Imported 시드 태그는 더 이상 붙이지 않는다.)
         assignUserTags(memoryId, initialTags, now)
 
         refreshFts(memoryId)
@@ -292,6 +286,76 @@ class RoomMemoryRepository @Inject constructor(
             memoryItemDao.touchUpdatedAt(memoryId, now)
             refreshFts(memoryId)
         }
+    }
+
+    override suspend fun addTagToMemory(memoryId: Long, tagName: String) {
+        if (TagAssigner.normalize(tagName) == null) return
+        val now = System.currentTimeMillis()
+        tagAssigner.assign(
+            memoryId = memoryId,
+            request = TagAssignmentRequest(
+                rawName = tagName,
+                assignedBy = TagAssignedBy.USER,
+                sources = setOf(TagAssignmentSource.USER),
+            ),
+            now = now,
+        )
+        memoryItemDao.touchUpdatedAt(memoryId, now)
+        refreshFts(memoryId)
+    }
+
+    override suspend fun removeTagFromMemory(memoryId: Long, tagName: String) {
+        val normalized = TagAssigner.normalize(tagName) ?: return
+        val tagId = tagDao.findByName(normalized)?.id ?: return
+        val now = System.currentTimeMillis()
+        tagAssigner.removeByUser(memoryId, tagId, now)
+        memoryItemDao.touchUpdatedAt(memoryId, now)
+        refreshFts(memoryId)
+    }
+
+    override suspend fun listAllTags(): List<TagCount> {
+        val counts = tagDao.allTagCounts().associate { it.name to it.count }
+        return tagDao.getAllActive().map { tag ->
+            TagCount(
+                name = tag.name,
+                displayName = "#${tag.displayName}",
+                count = counts[tag.name] ?: 0,
+            )
+        }
+    }
+
+    override suspend fun createTag(tagName: String): Boolean {
+        val normalized = TagAssigner.normalize(tagName) ?: return false
+        val now = System.currentTimeMillis()
+        val existing = tagDao.findByName(normalized)
+        if (existing != null) {
+            if (existing.isArchived) tagDao.setArchived(existing.id, false, now)
+            return false
+        }
+        val inserted = tagDao.insert(
+            TagEntity(
+                name = normalized,
+                displayName = TagAssigner.displayName(tagName, normalized),
+                isUserManaged = true,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        return inserted > 0L
+    }
+
+    override suspend fun deleteTag(tagName: String) {
+        val normalized = TagAssigner.normalize(tagName) ?: return
+        val tag = tagDao.findByName(normalized) ?: return
+        val affected = memoryTagDao.memoriesForTag(tag.id).map { it.id }
+        memoryTagDao.deleteByTagId(tag.id)
+        tagDao.deleteById(tag.id)
+        val now = System.currentTimeMillis()
+        affected.forEach { id ->
+            memoryItemDao.touchUpdatedAt(id, now)
+            refreshFts(id)
+        }
+        tagSnapshot = computeTagCounts()
     }
 
     override fun acceptGeminiSuggestion(memoryId: Long) {
@@ -411,7 +475,6 @@ class RoomMemoryRepository @Inject constructor(
     companion object {
         private const val TAG = "RoomMemoryRepository"
         private const val DEFAULT_MEMO_BODY = "새 이미지 분석을 준비 중입니다."
-        private const val SEED_IMPORT_TAG = "Imported"
 
         @Suppress("unused")
         private val MEMORIES_STATE = SharingStarted.WhileSubscribed(5_000)

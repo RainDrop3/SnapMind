@@ -38,6 +38,9 @@ interface MemoryTagDao {
     @Query("DELETE FROM memory_tag_cross_refs WHERE memoryId = :memoryId")
     suspend fun deleteByMemoryId(memoryId: Long): Int
 
+    @Query("DELETE FROM memory_tag_cross_refs WHERE tagId = :tagId")
+    suspend fun deleteByTagId(tagId: Long): Int
+
     @Query(
         """
         SELECT memory_items.* FROM memory_items

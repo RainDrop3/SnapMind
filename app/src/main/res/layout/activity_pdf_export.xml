@@ -18,35 +18,79 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingTop="14dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="6dp">
 
         <TextView
             android:id="@+id/pdfSummary"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:gravity="center"
+            android:layout_weight="1"
             android:textColor="@color/snap_text"
-            android:textSize="20sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/pdfSelectAllButton"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:gravity="center"
-            android:text="선택/생성 로직은 데이터 담당 기능과 연결되면 이 화면에서 이어집니다."
-            android:textColor="@color/snap_text_secondary"
-            android:textSize="14sp" />
+            android:text="전체 선택" />
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/pdfRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingHorizontal="14dp"
+        android:paddingBottom="8dp" />
+
+    <TextView
+        android:id="@+id/pdfEmptyState"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:padding="24dp"
+        android:text="추출할 활성 이미지가 없어요."
+        android:textColor="@color/snap_text_secondary"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/snap_surface"
+        android:orientation="horizontal"
+        android:padding="12dp">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/pdfActionButton"
-            android:layout_width="match_parent"
+            android:id="@+id/pdfShareButton"
+            style="@style/Widget.Material3.Button.OutlinedButton.Icon"
+            android:layout_width="0dp"
             android:layout_height="52dp"
-            android:layout_marginTop="24dp"
-            android:text="PDF 생성 준비"
+            android:layout_marginEnd="6dp"
+            android:layout_weight="1"
+            android:enabled="false"
+            android:text="공유"
+            app:icon="@drawable/ic_file_download" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/pdfSaveButton"
+            style="@style/Widget.Material3.Button.Icon"
+            android:layout_width="0dp"
+            android:layout_height="52dp"
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            android:enabled="false"
+            android:text="저장"
             app:icon="@drawable/ic_file_download" />
     </LinearLayout>
 </LinearLayout>

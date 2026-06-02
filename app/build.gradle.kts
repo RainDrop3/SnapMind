@@ -76,6 +76,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     kapt(libs.androidx.room.compiler)
     implementation(libs.mlkit.text.recognition)
+    implementation(libs.mlkit.text.recognition.korean)
     implementation(libs.litert)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)

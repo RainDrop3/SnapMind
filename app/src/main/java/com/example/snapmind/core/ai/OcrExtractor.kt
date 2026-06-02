@@ -5,7 +5,7 @@ import android.net.Uri
 import com.example.snapmind.core.coroutine.DispatcherProvider
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,7 +25,8 @@ class OcrExtractor @Inject constructor(
     private val dispatcherProvider: DispatcherProvider,
 ) {
 
-    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    // 한국어 인식기는 한글과 함께 라틴 문자·숫자도 인식하므로 한글 스크린샷이 깨지지 않는다.
+    private val recognizer = TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
 
     suspend fun extract(imageUri: Uri): Result<OcrResult> = withContext(dispatcherProvider.io) {
         runCatching {

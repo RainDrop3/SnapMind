@@ -145,6 +145,19 @@
                 app:iconTint="@color/snap_accent" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/tagManageButton"
+                style="@style/Widget.Material3.Button.TextButton.Icon"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginHorizontal="12dp"
+                android:gravity="center_vertical"
+                android:text="태그 관리"
+                android:textAlignment="viewStart"
+                android:textColor="@color/snap_text"
+                app:icon="@drawable/ic_tag"
+                app:iconTint="@color/snap_primary" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/developerButton"
                 style="@style/Widget.Material3.Button.TextButton.Icon"
                 android:layout_width="match_parent"

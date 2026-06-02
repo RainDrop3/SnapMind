@@ -36,6 +36,18 @@ interface MemoryRepository {
 
     fun toggleFavorite(memoryId: Long)
     fun updateMemo(memoryId: Long, memo: String)
+
+    /** 상세 화면에서 메모리에 태그를 추가/삭제. */
+    suspend fun addTagToMemory(memoryId: Long, tagName: String)
+    suspend fun removeTagFromMemory(memoryId: Long, tagName: String)
+
+    /** 태그 선택·관리 화면용 전체 태그 목록(아카이브 제외, 미사용 태그 포함). */
+    suspend fun listAllTags(): List<TagCount>
+
+    /** 태그 관리 화면에서 전역 태그를 생성/삭제. */
+    suspend fun createTag(tagName: String): Boolean
+    suspend fun deleteTag(tagName: String)
+
     fun acceptGeminiSuggestion(memoryId: Long)
     fun dismissGeminiSuggestion(memoryId: Long)
     fun softDelete(memoryId: Long)

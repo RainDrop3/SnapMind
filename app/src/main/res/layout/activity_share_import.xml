@@ -16,141 +16,46 @@
         app:title="SnapMind에 저장"
         app:titleTextColor="@color/snap_text" />
 
-    <ScrollView
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:fillViewport="true">
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="24dp">
 
-        <LinearLayout
+        <ImageView
+            android:id="@+id/sharePreview"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:background="@color/snap_surface"
+            android:contentDescription="가져온 이미지 미리보기"
+            android:scaleType="centerCrop" />
+
+        <ProgressBar
+            android:id="@+id/shareProgress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp" />
+
+        <TextView
+            android:id="@+id/shareProgressText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="20dp">
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:text="이미지를 분석하고 있어요…"
+            android:textColor="@color/snap_text"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="360dp"
-                app:cardBackgroundColor="@color/snap_surface"
-                app:cardCornerRadius="8dp"
-                app:cardElevation="1dp"
-                app:strokeColor="@color/snap_outline"
-                app:strokeWidth="1dp">
-
-                <ImageView
-                    android:id="@+id/sharePreview"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:contentDescription="공유 이미지 미리보기"
-                    android:scaleType="centerCrop" />
-            </com.google.android.material.card.MaterialCardView>
-
-            <TextView
-                android:id="@+id/shareTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:text="SnapMind에 저장할까요?"
-                android:textColor="@color/snap_text"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/shareMeta"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:textColor="@color/snap_text_secondary"
-                android:textSize="14sp" />
-
-            <LinearLayout
-                android:id="@+id/imageStepControls"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:visibility="gone">
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/previousImageButton"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="0dp"
-                    android:layout_height="44dp"
-                    android:layout_weight="1"
-                    android:text="이전"
-                    app:icon="@drawable/ic_arrow_back" />
-
-                <Space
-                    android:layout_width="12dp"
-                    android:layout_height="1dp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/nextImageButton"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="0dp"
-                    android:layout_height="44dp"
-                    android:layout_weight="1"
-                    android:text="다음"
-                    app:icon="@drawable/ic_arrow_forward" />
-            </LinearLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:hint="메모">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/importMemoEditText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="top"
-                    android:inputType="textMultiLine|textCapSentences"
-                    android:minLines="3"
-                    android:textColor="@color/snap_text" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:hint="태그">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/importTagsEditText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="text"
-                    android:textColor="@color/snap_text" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:orientation="horizontal">
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/cancelButton"
-                    style="@style/Widget.Material3.Button.OutlinedButton"
-                    android:layout_width="0dp"
-                    android:layout_height="52dp"
-                    android:layout_weight="1"
-                    android:text="취소" />
-
-                <Space
-                    android:layout_width="12dp"
-                    android:layout_height="1dp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/saveButton"
-                    android:layout_width="0dp"
-                    android:layout_height="52dp"
-                    android:layout_weight="1"
-                    android:text="저장하고 분석"
-                    app:icon="@drawable/ic_spark" />
-            </LinearLayout>
-        </LinearLayout>
-    </ScrollView>
+        <TextView
+            android:id="@+id/shareProgressDetail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:text="OCR · 자동 분류가 끝나면 상세 화면으로 이동합니다."
+            android:textColor="@color/snap_text_secondary"
+            android:textSize="13sp" />
+    </LinearLayout>
 </LinearLayout>

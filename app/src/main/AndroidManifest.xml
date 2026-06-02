@@ -29,6 +29,9 @@
             android:name=".feature.utility.DeveloperInfoActivity"
             android:exported="false" />
         <activity
+            android:name=".feature.utility.TagManagementActivity"
+            android:exported="false" />
+        <activity
             android:name=".feature.importimage.ShareActivity"
             android:exported="true">
             <intent-filter>
