@@ -59,6 +59,15 @@
                 android:paddingTop="14dp"
                 android:paddingEnd="16dp" />
 
+            <TextView
+                android:id="@+id/updatedAtText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="6dp"
+                android:textColor="@color/snap_text_secondary"
+                android:textSize="12sp" />
+
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

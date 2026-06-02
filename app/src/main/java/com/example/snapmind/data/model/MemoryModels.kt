@@ -27,6 +27,7 @@ data class MemoryItem(
     val ocrText: String = "",
     val tags: List<String> = emptyList(),
     val createdAtMillis: Long,
+    val updatedAtMillis: Long = createdAtMillis,
     val processingStatus: ProcessingStatus = ProcessingStatus.PROCESSING,
     val isFavorite: Boolean = false,
     val geminiSuggestion: String? = null,

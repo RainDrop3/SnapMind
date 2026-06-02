@@ -38,7 +38,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="22dp"
             android:gravity="center"
-            android:text="SnapMind Team B"
+            android:text="SnapMind Project Team"
             android:textColor="@color/snap_text"
             android:textSize="24sp"
             android:textStyle="bold" />
@@ -49,8 +49,19 @@
             android:layout_marginTop="10dp"
             android:gravity="center"
             android:lineSpacingExtra="4dp"
-            android:text="앱 셸, 이미지 수집 UI, 외부 API 연동, 검색/태그/상세 화면 UI를 담당합니다."
+            android:text="스크린샷을 저장하고, OCR·이미지 분류·자동 태그로 다시 찾기 쉽게 만드는 Android 앱을 개발합니다."
             android:textColor="@color/snap_text_secondary"
             android:textSize="15sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/bg_badge_soft"
+            android:lineSpacingExtra="4dp"
+            android:padding="16dp"
+            android:text="역할: 데이터 저장 구조, AI 처리 파이프라인, 이미지 수집 화면, 검색·태그·상세·휴지통 UI 구현"
+            android:textColor="@color/snap_text"
+            android:textSize="14sp" />
     </LinearLayout>
 </LinearLayout>

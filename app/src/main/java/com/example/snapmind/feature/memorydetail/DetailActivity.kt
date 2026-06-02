@@ -20,6 +20,9 @@ import com.example.snapmind.data.model.MemoryItem
 import com.example.snapmind.databinding.ActivityMemoryDetailBinding
 import com.google.android.material.chip.Chip
 import dagger.hilt.android.AndroidEntryPoint
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
@@ -82,6 +85,7 @@ class DetailActivity : AppCompatActivity() {
         binding.ocrText.text = memory.ocrText.ifBlank { "아직 OCR 텍스트가 준비되지 않았습니다." }
         renderPreview(memory)
         renderChips(memory)
+        binding.updatedAtText.text = "최근 수정: ${updatedAtFormat.format(Date(memory.updatedAtMillis))}"
         renderSuggestion(memory)
         renderYoutube(memory)
         binding.favoriteDetailButton.iconTint = ContextCompat.getColorStateList(
@@ -161,6 +165,7 @@ class DetailActivity : AppCompatActivity() {
 
     companion object {
         private const val EXTRA_MEMORY_ID = "extra_memory_id"
+        private val updatedAtFormat = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.KOREA)
 
         fun createIntent(context: Context, memoryId: Long): Intent =
             Intent(context, DetailActivity::class.java).putExtra(EXTRA_MEMORY_ID, memoryId)
