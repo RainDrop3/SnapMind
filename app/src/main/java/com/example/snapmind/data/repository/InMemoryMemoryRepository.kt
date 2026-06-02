@@ -95,6 +95,8 @@ class InMemoryMemoryRepository @Inject constructor(
         sourceUri: Uri,
         mimeType: String?,
         sourceLabel: String,
+        initialMemo: String,
+        initialTags: List<String>,
     ): AppResult<MemoryItem> = withContext(dispatcherProvider.io) {
         val resolvedMimeType = mimeType ?: context.contentResolver.getType(sourceUri)
         if (resolvedMimeType?.startsWith("image/") != true) {
@@ -115,15 +117,21 @@ class InMemoryMemoryRepository @Inject constructor(
             return@withContext AppResult.Error(AppError.Unknown(error.message.orEmpty()))
         }
 
+        val now = System.currentTimeMillis()
         val imported = MemoryItem(
             id = nextId,
             imageUri = targetFile.toUri().toString(),
             sourceLabel = sourceLabel,
             category = MemoryCategory.UNKNOWN,
-            memo = "새 이미지 분석을 준비 중입니다.",
+            memo = initialMemo.trim().ifBlank { "새 이미지 분석을 준비 중입니다." },
             ocrText = "",
-            tags = listOf("#Imported"),
-            createdAtMillis = System.currentTimeMillis(),
+            tags = listOf("#Imported") + initialTags
+                .map { it.trim().removePrefix("#") }
+                .filter { it.isNotBlank() }
+                .distinctBy { it.lowercase() }
+                .map { "#$it" },
+            createdAtMillis = now,
+            updatedAtMillis = now,
             processingStatus = ProcessingStatus.PROCESSING,
         )
         _memories.value = listOf(imported) + _memories.value
@@ -171,8 +179,9 @@ class InMemoryMemoryRepository @Inject constructor(
         AppResult.Error(AppError.Unknown("InMemory repository does not support PDF export"))
 
     private fun updateMemory(memoryId: Long, transform: (MemoryItem) -> MemoryItem) {
+        val now = System.currentTimeMillis()
         _memories.value = _memories.value.map { item ->
-            if (item.id == memoryId) transform(item) else item
+            if (item.id == memoryId) transform(item).copy(updatedAtMillis = now) else item
         }
     }
 

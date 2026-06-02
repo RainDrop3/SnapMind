@@ -2,8 +2,10 @@ package com.example.snapmind.ui.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.snapmind.core.result.AppResult
 import com.example.snapmind.data.model.MemoryCategory
 import com.example.snapmind.data.repository.MemoryRepository
+import android.net.Uri
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -68,6 +70,13 @@ class MainViewModel @Inject constructor(
     fun toggleFavorite(memoryId: Long) {
         memoryRepository.toggleFavorite(memoryId)
     }
+
+    fun softDelete(memoryIds: List<Long>) {
+        memoryIds.forEach { memoryRepository.softDelete(it) }
+    }
+
+    suspend fun exportToPdf(memoryIds: List<Long>): AppResult<Uri> =
+        memoryRepository.exportToPdf(memoryIds)
 
     private fun String.equalsTag(other: String): Boolean =
         removePrefix("#").equals(other.removePrefix("#"), ignoreCase = true)

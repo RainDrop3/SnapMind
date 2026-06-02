@@ -32,6 +32,7 @@ fun MemoryAggregate.toDomain(): MemoryItem = MemoryItem(
     ocrText = ocr?.fullText.orEmpty(),
     tags = tags.map { "#${it.displayName}" },
     createdAtMillis = item.createdAt,
+    updatedAtMillis = item.updatedAt,
     processingStatus = item.composeProcessingStatus(),
     isFavorite = item.isFavorite,
     geminiSuggestion = memo?.geminiSuggestion,

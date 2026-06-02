@@ -15,6 +15,9 @@ data class RemoteFeatureFlags(
     val visionEnabled: Boolean,
     val geminiEnabled: Boolean,
     val youtubeEnabled: Boolean,
+    val visionApiKey: String,
+    val geminiApiKey: String,
+    val youtubeApiKey: String,
 )
 
 @Singleton
@@ -36,10 +39,25 @@ class AppPreferences @Inject constructor(
         get() = prefs.getBoolean(KEY_YOUTUBE, true)
         set(value) { prefs.edit().putBoolean(KEY_YOUTUBE, value).apply() }
 
+    var visionApiKey: String
+        get() = prefs.getString(KEY_VISION_API_KEY, "").orEmpty()
+        set(value) { prefs.edit().putString(KEY_VISION_API_KEY, value.trim()).apply() }
+
+    var geminiApiKey: String
+        get() = prefs.getString(KEY_GEMINI_API_KEY, "").orEmpty()
+        set(value) { prefs.edit().putString(KEY_GEMINI_API_KEY, value.trim()).apply() }
+
+    var youtubeApiKey: String
+        get() = prefs.getString(KEY_YOUTUBE_API_KEY, "").orEmpty()
+        set(value) { prefs.edit().putString(KEY_YOUTUBE_API_KEY, value.trim()).apply() }
+
     fun current(): RemoteFeatureFlags = RemoteFeatureFlags(
         visionEnabled = visionEnabled,
         geminiEnabled = geminiEnabled,
         youtubeEnabled = youtubeEnabled,
+        visionApiKey = visionApiKey,
+        geminiApiKey = geminiApiKey,
+        youtubeApiKey = youtubeApiKey,
     )
 
     fun observe(): Flow<RemoteFeatureFlags> = callbackFlow {
@@ -69,5 +87,8 @@ class AppPreferences @Inject constructor(
         private const val KEY_VISION = "vision_enabled"
         private const val KEY_GEMINI = "gemini_enabled"
         private const val KEY_YOUTUBE = "youtube_enabled"
+        private const val KEY_VISION_API_KEY = "vision_api_key"
+        private const val KEY_GEMINI_API_KEY = "gemini_api_key"
+        private const val KEY_YOUTUBE_API_KEY = "youtube_api_key"
     }
 }

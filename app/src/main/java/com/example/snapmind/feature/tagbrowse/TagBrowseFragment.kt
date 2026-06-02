@@ -29,7 +29,7 @@ class TagBrowseFragment : Fragment(R.layout.fragment_tag_browse) {
         _binding = FragmentTagBrowseBinding.bind(view)
         adapter = MemoryGridAdapter(
             onMemoryClick = { item -> startActivity(DetailActivity.createIntent(requireContext(), item.id)) },
-            onFavoriteClick = { item -> viewModel.toggleFavorite(item.id) },
+            onActionClick = { item -> viewModel.toggleFavorite(item.id) },
         )
         binding.tagMemoryRecyclerView.layoutManager = GridLayoutManager(requireContext(), 2)
         binding.tagMemoryRecyclerView.adapter = adapter

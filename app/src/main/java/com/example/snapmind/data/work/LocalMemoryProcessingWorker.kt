@@ -88,7 +88,7 @@ class LocalMemoryProcessingWorker @AssistedInject constructor(
         refreshFtsRow(memoryId, memoryItemDao, aggregateBuilder, memorySearchDao)
 
         WorkManager.getInstance(applicationContext).enqueue(
-            OneTimeWorkRequestBuilder<AutoTaggingWorker>()
+            OneTimeWorkRequestBuilder<RemoteEnrichmentWorker>()
                 .setInputData(workDataOf(KEY_MEMORY_ID to memoryId))
                 .build(),
         )

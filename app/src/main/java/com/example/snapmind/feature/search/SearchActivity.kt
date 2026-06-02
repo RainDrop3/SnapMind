@@ -30,7 +30,7 @@ class SearchActivity : AppCompatActivity() {
 
         adapter = MemoryGridAdapter(
             onMemoryClick = { startActivity(DetailActivity.createIntent(this, it.id)) },
-            onFavoriteClick = { viewModel.toggleFavorite(it.id) },
+            onActionClick = { viewModel.toggleFavorite(it.id) },
         )
         binding.searchRecyclerView.layoutManager = GridLayoutManager(this, 2)
         binding.searchRecyclerView.adapter = adapter

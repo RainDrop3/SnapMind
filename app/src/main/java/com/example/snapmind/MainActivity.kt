@@ -5,10 +5,10 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
+import android.view.MenuItem
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -20,11 +20,10 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.viewpager2.widget.ViewPager2
+import com.example.snapmind.feature.importimage.ShareActivity
 import com.example.snapmind.data.model.CategoryCount
 import com.example.snapmind.data.model.MemoryCategory
 import com.example.snapmind.data.model.TagCount
-import com.example.snapmind.core.result.AppResult
-import com.example.snapmind.data.repository.MemoryRepository
 import com.example.snapmind.databinding.ActivityMainBinding
 import com.example.snapmind.feature.search.SearchActivity
 import com.example.snapmind.feature.utility.DeveloperInfoActivity
@@ -37,12 +36,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
-    @Inject lateinit var memoryRepository: MemoryRepository
-
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MainViewModel by viewModels()
     private val galleryPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -63,6 +59,12 @@ class MainActivity : AppCompatActivity() {
         setupPager(savedInstanceState)
         setupDrawer()
         collectState()
+        openHomeIfRequested(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        openHomeIfRequested(intent)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -86,6 +88,7 @@ class MainActivity : AppCompatActivity() {
                 else -> false
             }
         }
+        menu.findItem(R.id.action_search)?.tintIcon()
     }
 
     private fun setupPager(savedInstanceState: Bundle?) = with(binding) {
@@ -116,17 +119,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun importPickedImage(uri: Uri) {
-        lifecycleScope.launch {
-            when (memoryRepository.importImage(uri, contentResolver.getType(uri), "갤러리")) {
-                is AppResult.Success -> {
-                    binding.mainPager.setCurrentItem(MainPagerAdapter.PAGE_HOME, true)
-                    Toast.makeText(this@MainActivity, "이미지를 SnapMind에 추가했어요.", Toast.LENGTH_SHORT).show()
-                }
-                is AppResult.Error -> {
-                    Toast.makeText(this@MainActivity, "이미지를 추가하지 못했어요.", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
+        startActivity(
+            ShareActivity.createIntent(
+                context = this,
+                uri = uri,
+                mimeType = contentResolver.getType(uri),
+                sourceLabel = "갤러리",
+            ),
+        )
     }
 
     private fun setupDrawer() = with(binding) {
@@ -260,6 +260,19 @@ class MainActivity : AppCompatActivity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
+    private fun openHomeIfRequested(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_HOME, false) == true) {
+            binding.mainPager.setCurrentItem(MainPagerAdapter.PAGE_HOME, true)
+        }
+    }
+
+    private fun MenuItem.tintIcon() {
+        val source = icon ?: return
+        val wrapped = DrawableCompat.wrap(source).mutate()
+        DrawableCompat.setTint(wrapped, ContextCompat.getColor(this@MainActivity, R.color.snap_text))
+        icon = wrapped
+    }
+
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
         if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
@@ -269,7 +282,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private companion object {
+    companion object {
+        const val EXTRA_OPEN_HOME = "extra_open_home"
         const val KEY_SELECTED_PAGE = "selected_page"
     }
 }
