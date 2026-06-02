@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doOnTextChanged
@@ -14,6 +15,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.bumptech.glide.Glide
+import com.example.snapmind.MainActivity
 import com.example.snapmind.R
 import com.example.snapmind.data.model.MemoryCategory
 import com.example.snapmind.data.model.MemoryItem
@@ -32,6 +34,7 @@ class DetailActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMemoryDetailBinding
     private var ocrVisible = false
     private var suppressMemoTextWatcher = false
+    private var currentMemory: MemoryItem? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +51,7 @@ class DetailActivity : AppCompatActivity() {
         binding.saveMemoButton.setOnClickListener {
             if (viewModel.saveMemo()) {
                 Toast.makeText(this, "메모를 저장했어요.", Toast.LENGTH_SHORT).show()
+                goHome()
             }
         }
         binding.favoriteDetailButton.setOnClickListener { viewModel.toggleFavorite() }
@@ -78,7 +82,17 @@ class DetailActivity : AppCompatActivity() {
         }
     }
 
+    private fun goHome() {
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_OPEN_HOME, true)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        )
+        finish()
+    }
+
     private fun render(memory: MemoryItem, memoDraft: String, hasUnsavedMemo: Boolean) {
+        currentMemory = memory
         binding.detailToolbar.title = memory.category.displayName
         syncMemoEditText(memoDraft)
         binding.saveMemoButton.isEnabled = hasUnsavedMemo
@@ -112,8 +126,7 @@ class DetailActivity : AppCompatActivity() {
             detailGlyph.text = ""
             Glide.with(detailImage)
                 .load(Uri.parse(memory.imageUri))
-                .thumbnail(0.25f)
-                .centerCrop()
+                .fitCenter()
                 .into(detailImage)
         }
     }
@@ -131,8 +144,45 @@ class DetailActivity : AppCompatActivity() {
                 Chip(this@DetailActivity).apply {
                     text = tag
                     isCheckable = false
+                    isCloseIconVisible = true
+                    setOnCloseIconClickListener { viewModel.removeTag(tag) }
                 },
             )
+        }
+        addView(
+            Chip(this@DetailActivity).apply {
+                text = "+ 태그"
+                isCheckable = false
+                setOnClickListener { showTagPicker() }
+            },
+        )
+    }
+
+    /** 전체 태그 목록을 다중 선택 다이얼로그로 띄워 메모리 태그를 추가/해제한다. */
+    private fun showTagPicker() {
+        val memory = currentMemory ?: return
+        lifecycleScope.launch {
+            val all = viewModel.allTagNames()
+            if (all.isEmpty()) {
+                Toast.makeText(
+                    this@DetailActivity,
+                    "등록된 태그가 없어요. 'Drawer › 태그 관리'에서 먼저 추가하세요.",
+                    Toast.LENGTH_SHORT,
+                ).show()
+                return@launch
+            }
+            val assigned = memory.tags.map { it.removePrefix("#").lowercase() }.toSet()
+            val checked = BooleanArray(all.size) { index ->
+                all[index].removePrefix("#").lowercase() in assigned
+            }
+            AlertDialog.Builder(this@DetailActivity)
+                .setTitle("태그 선택")
+                .setMultiChoiceItems(all.toTypedArray(), checked) { _, which, isChecked ->
+                    val name = all[which]
+                    if (isChecked) viewModel.addTag(name) else viewModel.removeTag(name)
+                }
+                .setPositiveButton("완료", null)
+                .show()
         }
     }
 

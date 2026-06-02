@@ -54,6 +54,7 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitTextRecognition" }
+mlkit-text-recognition-korean = { group = "com.google.mlkit", name = "text-recognition-korean", version.ref = "mlkitTextRecognition" }
 litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWork" }

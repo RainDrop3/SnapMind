@@ -31,15 +31,19 @@
             <FrameLayout
                 android:id="@+id/detailPreviewFrame"
                 android:layout_width="match_parent"
-                android:layout_height="300dp"
+                android:layout_height="wrap_content"
+                android:minHeight="240dp"
                 android:background="@drawable/bg_thumbnail_code">
 
                 <ImageView
                     android:id="@+id/detailImage"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
                     android:contentDescription="이미지 원본"
-                    android:scaleType="centerCrop" />
+                    android:maxHeight="560dp"
+                    android:minHeight="240dp"
+                    android:scaleType="fitCenter" />
 
                 <TextView
                     android:id="@+id/detailGlyph"

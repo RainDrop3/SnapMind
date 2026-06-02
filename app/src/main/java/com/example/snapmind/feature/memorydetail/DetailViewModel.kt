@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 data class DetailUiState(
     val memory: MemoryItem? = null,
@@ -86,6 +87,23 @@ class DetailViewModel @Inject constructor(
         val id = memoryIdFlow.value
         if (id > 0L) repository.toggleFavorite(id)
     }
+
+    fun addTag(tagName: String) {
+        val id = memoryIdFlow.value
+        if (id > 0L && tagName.isNotBlank()) {
+            viewModelScope.launch { repository.addTagToMemory(id, tagName) }
+        }
+    }
+
+    fun removeTag(tagName: String) {
+        val id = memoryIdFlow.value
+        if (id > 0L) {
+            viewModelScope.launch { repository.removeTagFromMemory(id, tagName) }
+        }
+    }
+
+    /** 태그 선택 다이얼로그용 전체 태그 표시 이름 목록(예: "#travel"). */
+    suspend fun allTagNames(): List<String> = repository.listAllTags().map { it.displayName }
 
     fun softDelete() {
         val id = memoryIdFlow.value

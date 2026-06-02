@@ -4,30 +4,28 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.example.snapmind.core.ai.AutoTagRuleEngine
-import com.example.snapmind.data.local.dao.ClassificationDao
 import com.example.snapmind.data.local.dao.MemoryItemDao
 import com.example.snapmind.data.local.dao.MemorySearchDao
-import com.example.snapmind.data.local.dao.OcrTextDao
-import com.example.snapmind.data.local.dao.VisionLabelDao
 import com.example.snapmind.data.local.entity.StandardProcessingStatus
 import com.example.snapmind.data.repository.MemoryAggregateBuilder
-import com.example.snapmind.data.repository.TagAssigner
 import com.example.snapmind.data.repository.refreshFtsRow
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
+/**
+ * 업로드 시 자동 태깅은 제거되었다.
+ * - 카테고리: 모델 분류 결과(classifications, top-1)로 결정된다.
+ * - 태그: 사용자가 상세 화면/태그 관리에서 직접 추가한 것만 사용한다.
+ *
+ * 이 워커는 더 이상 태그를 생성하지 않고, 처리 상태(taggingStatus)를 마무리하고
+ * 검색 인덱스를 갱신하는 역할만 한다.
+ */
 @HiltWorker
 class AutoTaggingWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
     private val memoryItemDao: MemoryItemDao,
-    private val ocrTextDao: OcrTextDao,
-    private val classificationDao: ClassificationDao,
-    private val visionLabelDao: VisionLabelDao,
     private val memorySearchDao: MemorySearchDao,
-    private val ruleEngine: AutoTagRuleEngine,
-    private val tagAssigner: TagAssigner,
     private val aggregateBuilder: MemoryAggregateBuilder,
 ) : CoroutineWorker(appContext, params) {
 
@@ -36,17 +34,8 @@ class AutoTaggingWorker @AssistedInject constructor(
         if (memoryId <= 0L) return Result.failure()
         if (memoryItemDao.getById(memoryId) == null) return Result.success()
 
-        val now = System.currentTimeMillis()
-        memoryItemDao.setTaggingStatus(memoryId, StandardProcessingStatus.RUNNING, now)
-
+        memoryItemDao.setTaggingStatus(memoryId, StandardProcessingStatus.RUNNING, System.currentTimeMillis())
         return try {
-            val ocrText = ocrTextDao.getByMemoryId(memoryId)?.fullText
-            val classifications = classificationDao.getByMemoryId(memoryId)
-            val visionLabels = visionLabelDao.getByMemoryId(memoryId)
-
-            val requests = ruleEngine.buildAssignments(ocrText, classifications, visionLabels)
-            tagAssigner.assignAll(memoryId, requests, System.currentTimeMillis())
-
             refreshFtsRow(memoryId, memoryItemDao, aggregateBuilder, memorySearchDao)
             memoryItemDao.setTaggingStatus(memoryId, StandardProcessingStatus.SUCCESS, System.currentTimeMillis())
             Result.success()

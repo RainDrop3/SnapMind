@@ -1,6 +1,5 @@
 package com.example.snapmind.feature.home
 
-import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -13,7 +12,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.GridLayoutManager
 import com.example.snapmind.R
-import com.example.snapmind.core.result.AppResult
 import com.example.snapmind.data.model.MemoryItem
 import com.example.snapmind.databinding.FragmentMemoryGridBinding
 import com.example.snapmind.feature.memorydetail.DetailActivity
@@ -61,7 +59,6 @@ abstract class MemoryGridFragment : Fragment(R.layout.fragment_memory_grid) {
         binding.emptyTitle.text = emptyTitle
         binding.emptyMessage.text = emptyMessage
         binding.deleteSelectedButton.setOnClickListener { confirmDeleteSelection() }
-        binding.exportSelectedPdfButton.setOnClickListener { exportSelectionToPdf() }
         binding.clearSelectionButton.setOnClickListener { clearSelection() }
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, backCallback)
 
@@ -99,7 +96,6 @@ abstract class MemoryGridFragment : Fragment(R.layout.fragment_memory_grid) {
         binding.selectionBar.visibility = if (count > 0) View.VISIBLE else View.GONE
         binding.selectedCountText.text = "${count}개 선택"
         binding.deleteSelectedButton.isEnabled = count > 0
-        binding.exportSelectedPdfButton.isEnabled = count > 0
         backCallback.isEnabled = count > 0
     }
 
@@ -116,33 +112,6 @@ abstract class MemoryGridFragment : Fragment(R.layout.fragment_memory_grid) {
                 Toast.makeText(requireContext(), "${ids.size}개 항목을 휴지통으로 이동했어요.", Toast.LENGTH_SHORT).show()
             }
             .show()
-    }
-
-    private fun exportSelectionToPdf() {
-        val ids = selectedIds.toList()
-        if (ids.isEmpty()) return
-        binding.exportSelectedPdfButton.isEnabled = false
-        viewLifecycleOwner.lifecycleScope.launch {
-            when (val result = viewModel.exportToPdf(ids)) {
-                is AppResult.Success -> {
-                    val share = Intent(Intent.ACTION_SEND).apply {
-                        type = "application/pdf"
-                        putExtra(Intent.EXTRA_STREAM, result.data)
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    startActivity(Intent.createChooser(share, "SnapMind PDF 공유"))
-                    clearSelection()
-                }
-                is AppResult.Error -> {
-                    Toast.makeText(
-                        requireContext(),
-                        "PDF 생성에 실패했어요.",
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                    updateSelectionUi()
-                }
-            }
-        }
     }
 
     private fun renderFilterChip(label: String?) = with(binding.filterChipGroup) {

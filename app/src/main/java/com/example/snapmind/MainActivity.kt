@@ -28,6 +28,7 @@ import com.example.snapmind.databinding.ActivityMainBinding
 import com.example.snapmind.feature.search.SearchActivity
 import com.example.snapmind.feature.utility.DeveloperInfoActivity
 import com.example.snapmind.feature.utility.PdfExportActivity
+import com.example.snapmind.feature.utility.TagManagementActivity
 import com.example.snapmind.feature.utility.TrashActivity
 import com.example.snapmind.ui.main.MainPagerAdapter
 import com.example.snapmind.ui.main.MainViewModel
@@ -147,6 +148,10 @@ class MainActivity : AppCompatActivity() {
             drawerLayout.closeDrawer(GravityCompat.START)
             startActivity(Intent(this@MainActivity, PdfExportActivity::class.java))
         }
+        tagManageButton.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.START)
+            startActivity(Intent(this@MainActivity, TagManagementActivity::class.java))
+        }
         developerButton.setOnClickListener {
             drawerLayout.closeDrawer(GravityCompat.START)
             startActivity(Intent(this@MainActivity, DeveloperInfoActivity::class.java))
@@ -177,7 +182,7 @@ class MainActivity : AppCompatActivity() {
                     detail = "${tag.count}개 이미지",
                     selected = false,
                 ) {
-                    viewModel.applyTagFilter(tag.name)
+                    viewModel.applyTagBrowseTag(tag.name)
                     binding.mainPager.setCurrentItem(MainPagerAdapter.PAGE_TAGS, true)
                     binding.drawerLayout.closeDrawer(GravityCompat.START)
                 },

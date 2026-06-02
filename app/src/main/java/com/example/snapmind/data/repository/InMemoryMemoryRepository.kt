@@ -125,7 +125,7 @@ class InMemoryMemoryRepository @Inject constructor(
             category = MemoryCategory.UNKNOWN,
             memo = initialMemo.trim().ifBlank { "새 이미지 분석을 준비 중입니다." },
             ocrText = "",
-            tags = listOf("#Imported") + initialTags
+            tags = initialTags
                 .map { it.trim().removePrefix("#") }
                 .filter { it.isNotBlank() }
                 .distinctBy { it.lowercase() }
@@ -146,6 +146,33 @@ class InMemoryMemoryRepository @Inject constructor(
 
     override fun updateMemo(memoryId: Long, memo: String) {
         updateMemory(memoryId) { it.copy(memo = memo) }
+    }
+
+    override suspend fun addTagToMemory(memoryId: Long, tagName: String) {
+        val tag = "#" + tagName.trim().removePrefix("#")
+        if (tag.length <= 1) return
+        updateMemory(memoryId) { item ->
+            if (item.tags.any { it.equals(tag, ignoreCase = true) }) item
+            else item.copy(tags = item.tags + tag)
+        }
+    }
+
+    override suspend fun removeTagFromMemory(memoryId: Long, tagName: String) {
+        val normalized = tagName.normalizeTag()
+        updateMemory(memoryId) { item ->
+            item.copy(tags = item.tags.filterNot { it.normalizeTag() == normalized })
+        }
+    }
+
+    override suspend fun listAllTags(): List<TagCount> = tags()
+
+    override suspend fun createTag(tagName: String): Boolean = false
+
+    override suspend fun deleteTag(tagName: String) {
+        val normalized = tagName.normalizeTag()
+        _memories.value = _memories.value.map { item ->
+            item.copy(tags = item.tags.filterNot { it.normalizeTag() == normalized })
+        }
     }
 
     override fun acceptGeminiSuggestion(memoryId: Long) {
