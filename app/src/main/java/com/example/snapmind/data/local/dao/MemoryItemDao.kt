@@ -54,6 +54,9 @@ interface MemoryItemDao {
     @Query("UPDATE memory_items SET deletedAt = :deletedAt, updatedAt = :updatedAt WHERE id = :memoryId")
     suspend fun setDeletedAt(memoryId: Long, deletedAt: Long?, updatedAt: Long): Int
 
+    @Query("UPDATE memory_items SET updatedAt = :updatedAt WHERE id = :memoryId")
+    suspend fun touchUpdatedAt(memoryId: Long, updatedAt: Long): Int
+
     @Query("UPDATE memory_items SET ocrStatus = :status, updatedAt = :updatedAt WHERE id = :memoryId")
     suspend fun setOcrStatus(memoryId: Long, status: StandardProcessingStatus, updatedAt: Long): Int
 

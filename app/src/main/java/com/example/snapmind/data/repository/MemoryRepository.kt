@@ -30,6 +30,8 @@ interface MemoryRepository {
         sourceUri: Uri,
         mimeType: String?,
         sourceLabel: String,
+        initialMemo: String = "",
+        initialTags: List<String> = emptyList(),
     ): AppResult<MemoryItem>
 
     fun toggleFavorite(memoryId: Long)

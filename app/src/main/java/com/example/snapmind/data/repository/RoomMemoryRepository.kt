@@ -141,6 +141,8 @@ class RoomMemoryRepository @Inject constructor(
         sourceUri: Uri,
         mimeType: String?,
         sourceLabel: String,
+        initialMemo: String,
+        initialTags: List<String>,
     ): AppResult<MemoryItem> {
         val imported = when (val r = imageImporter.import(sourceUri, mimeType)) {
             is AppResult.Success -> r.data
@@ -149,7 +151,9 @@ class RoomMemoryRepository @Inject constructor(
 
         val existing = imported.contentHash?.let { memoryItemDao.findByContentHash(it) }
         if (existing != null) {
-            val aggregate = buildAggregate(existing)
+            applyImportedMetadata(existing.id, initialMemo, initialTags)
+            val updated = memoryItemDao.getById(existing.id) ?: existing
+            val aggregate = buildAggregate(updated)
             return AppResult.Success(aggregate.toDomain())
         }
 
@@ -170,7 +174,7 @@ class RoomMemoryRepository @Inject constructor(
         memoDao.upsert(
             MemoEntity(
                 memoryId = memoryId,
-                body = DEFAULT_MEMO_BODY,
+                body = initialMemo.trim().ifBlank { DEFAULT_MEMO_BODY },
                 geminiSuggestion = null,
                 createdAt = now,
                 updatedAt = now,
@@ -186,6 +190,7 @@ class RoomMemoryRepository @Inject constructor(
             ),
             now = now,
         )
+        assignUserTags(memoryId, initialTags, now)
 
         refreshFts(memoryId)
         enqueueLocalProcessing(memoryId)
@@ -200,6 +205,63 @@ class RoomMemoryRepository @Inject constructor(
             .setInputData(workDataOf(LocalMemoryProcessingWorker.KEY_MEMORY_ID to memoryId))
             .build()
         WorkManager.getInstance(context).enqueue(request)
+    }
+
+    private suspend fun applyImportedMetadata(
+        memoryId: Long,
+        initialMemo: String,
+        initialTags: List<String>,
+    ) {
+        val now = System.currentTimeMillis()
+        var touched = false
+        val memo = initialMemo.trim()
+        if (memo.isNotEmpty()) {
+            val existingMemo = memoDao.getByMemoryId(memoryId)
+            if (existingMemo == null) {
+                memoDao.upsert(
+                    MemoEntity(
+                        memoryId = memoryId,
+                        body = memo,
+                        geminiSuggestion = null,
+                        createdAt = now,
+                        updatedAt = now,
+                    ),
+                )
+            } else {
+                memoDao.updateBody(memoryId, memo, now)
+            }
+            touched = true
+        }
+        if (assignUserTags(memoryId, initialTags, now)) {
+            touched = true
+        }
+        if (touched) {
+            memoryItemDao.touchUpdatedAt(memoryId, now)
+            refreshFts(memoryId)
+        }
+    }
+
+    private suspend fun assignUserTags(
+        memoryId: Long,
+        rawTags: List<String>,
+        now: Long,
+    ): Boolean {
+        val tags = rawTags
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinctBy { TagAssigner.normalize(it) }
+        tags.forEach { tag ->
+            tagAssigner.assign(
+                memoryId = memoryId,
+                request = TagAssignmentRequest(
+                    rawName = tag,
+                    assignedBy = TagAssignedBy.USER,
+                    sources = setOf(TagAssignmentSource.USER),
+                ),
+                now = now,
+            )
+        }
+        return tags.isNotEmpty()
     }
 
     override fun toggleFavorite(memoryId: Long) {
@@ -227,6 +289,7 @@ class RoomMemoryRepository @Inject constructor(
             } else {
                 memoDao.updateBody(memoryId, memo, now)
             }
+            memoryItemDao.touchUpdatedAt(memoryId, now)
             refreshFts(memoryId)
         }
     }
@@ -238,6 +301,7 @@ class RoomMemoryRepository @Inject constructor(
             val now = System.currentTimeMillis()
             memoDao.updateBody(memoryId, suggestion, now)
             memoDao.updateGeminiSuggestion(memoryId, null, now)
+            memoryItemDao.touchUpdatedAt(memoryId, now)
             refreshFts(memoryId)
         }
     }
