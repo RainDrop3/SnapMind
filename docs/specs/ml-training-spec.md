@@ -6,7 +6,8 @@ Document the expected classification model contract used by the Android TFLite r
 
 ## Initial Model Scope
 
-The first release should classify broad memory categories:
+The model is trained on **8 output classes** (the `unknown` class was removed; the
+model no longer learns or predicts an "unknown" category):
 
 - `chat`
 - `receipt`
@@ -16,7 +17,13 @@ The first release should classify broad memory categories:
 - `food`
 - `document`
 - `youtube`
-- `unknown`
+
+### App-level `unknown` category
+
+`unknown` remains a valid **app-level** memory category (`MemoryCategory.UNKNOWN`),
+but it is no longer produced by the model. The Android runtime derives it via
+**Confidence Thresholding**: when the top-1 probability is below the threshold,
+the app overrides the predicted label with `unknown` (see Android Runtime Contract).
 
 ## Android Runtime Contract
 

@@ -49,31 +49,52 @@ class ImageClassifier @Inject constructor(
                 val activeLabels = labels
                 val bitmap = loadBitmap(imageUri)
                 val input = preprocess(bitmap)
+
+                // 모델 출력 = 길이 8의 softmax 확률 배열.
+                // (각 카테고리에 대한 확신도(0~1), 전체 합 ≈ 1.0)
+                // 이 모델에는 더 이상 'unknown' 클래스가 없다 — 8개 실제 카테고리만 출력한다.
                 val output = Array(1) { FloatArray(activeLabels.size) }
                 interp.run(input, output)
                 val scores = output[0]
+
+                // 확률 내림차순 정렬 → 상위 TOP_K 후보 생성. (rank 1 = 가장 확신하는 카테고리)
                 val ranked = scores.withIndex()
                     .sortedByDescending { it.value }
                     .take(TOP_K)
                     .mapIndexed { index, indexed ->
                         ClassificationPrediction(
+                            // 출력 인덱스 → labels.txt의 카테고리 이름으로 매핑
                             label = activeLabels.getOrElse(indexed.index) { LABEL_UNKNOWN },
                             confidence = indexed.value,
                             rank = index + 1,
                         )
                     }
-                val top = ranked.firstOrNull()
-                val effectiveTop = if (top != null && top.confidence < CONFIDENCE_THRESHOLD) {
-                    ClassificationPrediction(LABEL_UNKNOWN, top.confidence, 1)
+
+                // ── Confidence Thresholding (앱단 후처리) ──────────────────────────
+                // 모델은 항상 8개 중 하나를 "가장 그럴듯한" 답으로 내놓는다. 하지만 그 확신도가
+                // 낮다면 사실상 "어디에도 속하지 않는" 이미지일 가능성이 크다.
+                // 따라서 최고 확률(top-1)이 임계값(0.65) 미만이면 카테고리를 "Unknown"으로 판정하고,
+                // 임계값 이상일 때만 모델이 예측한 카테고리 이름을 그대로 반환한다.
+                // [진단용] 실제 모델 확률 분포를 로그로 확인. (원인 파악 후 제거 가능)
+                //   - top-1 확신도가 0.65 미만이면 임계값에 걸려 Unknown으로 판정됨.
+                //   - 학습 데이터인데도 확신도가 낮다면 → 모델 미학습/전처리 불일치 의심.
+                Log.d(
+                    TAG,
+                    "raw scores=" + ranked.joinToString { "${it.label}=%.3f".format(it.confidence) } +
+                        " | labelCount=${activeLabels.size}",
+                )
+
+                val best = ranked.firstOrNull()
+                val predictions = if (best != null && best.confidence < CONFIDENCE_THRESHOLD) {
+                    // top-1 라벨만 "Unknown"으로 치환(원본 확신도는 보존),
+                    // 나머지 후보(rank 2·3)는 디버그/참고용으로 원본 그대로 둔다.
+                    listOf(best.copy(label = LABEL_UNKNOWN)) + ranked.drop(1)
                 } else {
-                    top
+                    // 임계값 이상 → 모델 예측 카테고리를 신뢰하고 그대로 사용.
+                    ranked
                 }
-                val final = if (effectiveTop != null && effectiveTop.label != ranked.firstOrNull()?.label) {
-                    listOf(effectiveTop) + ranked.drop(1).mapIndexed { idx, p ->
-                        p.copy(rank = idx + 2)
-                    }
-                } else ranked
-                ClassificationResult(predictions = final, modelVersion = MODEL_VERSION)
+
+                ClassificationResult(predictions = predictions, modelVersion = MODEL_VERSION)
             }.onFailure { error ->
                 Log.e(TAG, "Classification failed for $imageUri", error)
             }
@@ -173,18 +194,24 @@ class ImageClassifier @Inject constructor(
     }
 
     companion object {
-        const val MODEL_ASSET = "image_classifier_v1_0_0.tflite"
+        const val MODEL_ASSET = "image_classifier_v2_0_0.tflite"
         const val LABELS_ASSET = "labels.txt"
         const val MODEL_VERSION = "v1.0.0"
         private const val TAG = "ImageClassifier"
         private const val INPUT_SIZE = 224
         private const val CHANNELS = 3
         private const val TOP_K = 3
-        private const val CONFIDENCE_THRESHOLD = 0.65f
-        private const val LABEL_UNKNOWN = "unknown"
 
-        // labels.txt가 없을 때 폴백. 모델 학습 시 image_dataset_from_directory의
-        // 알파벳 정렬 순서를 따른다는 가정으로 정렬되어 있음.
+        // 최고 확률이 이 값 미만이면 "Unknown"으로 판정하는 임계값(Confidence Threshold).
+        // (ml-training-spec.md의 Android Runtime Contract 기본값과 동일)
+        private const val CONFIDENCE_THRESHOLD = 0.65f
+
+        // 임계값 미만일 때 부여하는 라벨. 대소문자와 무관하게
+        // EntityMappers.toMemoryCategory()가 uppercase() 후 MemoryCategory.UNKNOWN으로 매핑한다.
+        private const val LABEL_UNKNOWN = "Unknown"
+
+        // labels.txt가 없을 때 폴백. 모델은 'unknown' 클래스 없이 8개만 출력하며,
+        // image_dataset_from_directory의 폴더명 알파벳 정렬 순서와 인덱스가 일치해야 한다.
         private val FALLBACK_LABELS: List<String> = listOf(
             "chat",
             "code",
@@ -193,7 +220,6 @@ class ImageClassifier @Inject constructor(
             "receipt",
             "shopping",
             "travel",
-            "unknown",
             "youtube",
         )
     }

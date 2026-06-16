@@ -43,9 +43,13 @@ All steps run on Coroutine background dispatchers and do not block the UI thread
 3. Resize and normalize pixels per model spec.
 4. Run interpreter with configured thread count.
 5. Convert logits to category predictions.
-6. Store top category, confidence score, and top-N candidates.
+6. Apply confidence thresholding: if the top-1 probability is below the threshold
+   (`0.65`), override the predicted label with `unknown`.
+7. Store top category, confidence score, and top-N candidates.
 
-Categories: `chat` · `receipt` · `code` · `shopping` · `travel` · `food` · `document` · `youtube` · `unknown`
+Model output classes (8): `chat` · `receipt` · `code` · `shopping` · `travel` · `food` · `document` · `youtube`
+
+App-level categories add `unknown`, which is derived at runtime via thresholding rather than emitted by the model.
 
 ## Vision API Flow (Google Cloud Vision)
 

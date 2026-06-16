@@ -5,5 +5,4 @@ food
 receipt
 shopping
 travel
-unknown
 youtube
