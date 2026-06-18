@@ -49,31 +49,48 @@ class ImageClassifier @Inject constructor(
                 val activeLabels = labels
                 val bitmap = loadBitmap(imageUri)
                 val input = preprocess(bitmap)
+
+                // 모델 출력 = 길이 N(=labels.txt 개수)의 sigmoid 확률 배열.
+                // softmax와 달리 각 카테고리가 "독립적인" 확신도(0~1)를 가지며 전체 합이 1이 아니다.
+                // → 하나의 이미지에 여러 카테고리가 동시에 높은 확률을 가질 수 있다(멀티라벨).
                 val output = Array(1) { FloatArray(activeLabels.size) }
                 interp.run(input, output)
                 val scores = output[0]
-                val ranked = scores.withIndex()
+
+                // [진단용] 전체 라벨별 확률 분포 로그.
+                Log.d(
+                    TAG,
+                    "raw scores=" + scores.withIndex().joinToString {
+                        "${activeLabels.getOrElse(it.index) { "?" }}=%.3f".format(it.value)
+                    } + " | labelCount=${activeLabels.size}",
+                )
+
+                // ── 멀티라벨 선택 (앱단 후처리) ──────────────────────────────────────
+                // 확률이 임계값(0.65)을 넘는 카테고리만, 확률이 높은 순서대로 최대 2개까지 채택한다.
+                // 임계값을 넘는 카테고리가 하나도 없으면 "Others"(어디에도 속하지 않음)로 판정한다.
+                val selected = scores.withIndex()
+                    .filter { it.value >= CONFIDENCE_THRESHOLD }
                     .sortedByDescending { it.value }
-                    .take(TOP_K)
+                    .take(MAX_CATEGORIES)
                     .mapIndexed { index, indexed ->
                         ClassificationPrediction(
-                            label = activeLabels.getOrElse(indexed.index) { LABEL_UNKNOWN },
+                            label = activeLabels.getOrElse(indexed.index) { LABEL_OTHERS },
                             confidence = indexed.value,
                             rank = index + 1,
                         )
                     }
-                val top = ranked.firstOrNull()
-                val effectiveTop = if (top != null && top.confidence < CONFIDENCE_THRESHOLD) {
-                    ClassificationPrediction(LABEL_UNKNOWN, top.confidence, 1)
-                } else {
-                    top
+
+                val predictions = selected.ifEmpty {
+                    listOf(
+                        ClassificationPrediction(
+                            label = LABEL_OTHERS,
+                            confidence = scores.maxOrNull() ?: 0f,
+                            rank = 1,
+                        ),
+                    )
                 }
-                val final = if (effectiveTop != null && effectiveTop.label != ranked.firstOrNull()?.label) {
-                    listOf(effectiveTop) + ranked.drop(1).mapIndexed { idx, p ->
-                        p.copy(rank = idx + 2)
-                    }
-                } else ranked
-                ClassificationResult(predictions = final, modelVersion = MODEL_VERSION)
+
+                ClassificationResult(predictions = predictions, modelVersion = MODEL_VERSION)
             }.onFailure { error ->
                 Log.e(TAG, "Classification failed for $imageUri", error)
             }
@@ -173,27 +190,32 @@ class ImageClassifier @Inject constructor(
     }
 
     companion object {
-        const val MODEL_ASSET = "image_classifier_v1_0_0.tflite"
+        const val MODEL_ASSET = "image_classifier_v4_0_0.tflite"
         const val LABELS_ASSET = "labels.txt"
         const val MODEL_VERSION = "v1.0.0"
         private const val TAG = "ImageClassifier"
         private const val INPUT_SIZE = 224
         private const val CHANNELS = 3
-        private const val TOP_K = 3
-        private const val CONFIDENCE_THRESHOLD = 0.65f
-        private const val LABEL_UNKNOWN = "unknown"
 
-        // labels.txt가 없을 때 폴백. 모델 학습 시 image_dataset_from_directory의
-        // 알파벳 정렬 순서를 따른다는 가정으로 정렬되어 있음.
+        // 한 이미지에 채택하는 최대 카테고리 수.
+        private const val MAX_CATEGORIES = 2
+
+        // 카테고리를 채택하는 확률 임계값. 모든 카테고리가 이 값 미만이면 "Others"로 판정한다.
+        // (sigmoid 멀티라벨이므로 카테고리별로 독립 적용된다.)
+        private const val CONFIDENCE_THRESHOLD = 0.65f
+
+        // 임계값을 넘는 카테고리가 없을 때 부여하는 라벨. 대소문자와 무관하게
+        // EntityMappers.toMemoryCategory()가 uppercase() 후 MemoryCategory.OTHERS로 매핑한다.
+        private const val LABEL_OTHERS = "Others"
+
+        // labels.txt가 없을 때 폴백. 'code'/'unknown'/'shopping' 클래스 없이 6개만 출력하며,
+        // image_dataset_from_directory의 폴더명 알파벳 정렬 순서와 인덱스가 일치해야 한다.
         private val FALLBACK_LABELS: List<String> = listOf(
             "chat",
-            "code",
             "document",
             "food",
             "receipt",
-            "shopping",
             "travel",
-            "unknown",
             "youtube",
         )
     }

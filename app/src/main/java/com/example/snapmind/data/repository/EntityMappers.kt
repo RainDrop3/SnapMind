@@ -19,15 +19,18 @@ data class MemoryAggregate(
     val ocr: OcrTextEntity?,
     val memo: MemoEntity?,
     val tags: List<TagEntity>,
-    val topClassification: ClassificationEntity?,
+    /** rank 오름차순으로 정렬된 상위 카테고리 분류(최대 2개). */
+    val classifications: List<ClassificationEntity>,
     val youtubeLink: YoutubeLinkEntity?,
-)
+) {
+    val topClassification: ClassificationEntity? get() = classifications.firstOrNull()
+}
 
 fun MemoryAggregate.toDomain(): MemoryItem = MemoryItem(
     id = item.id,
     imageUri = item.imageUri,
     sourceLabel = SOURCE_LABEL,
-    category = topClassification?.label.toMemoryCategory(),
+    categories = classifications.toMemoryCategories(),
     memo = memo?.body.orEmpty(),
     ocrText = ocr?.fullText.orEmpty(),
     tags = tags.map { "#${it.displayName}" },
@@ -71,9 +74,22 @@ private fun GeminiMemoStatus.isDone(): Boolean = this == GeminiMemoStatus.SUGGES
     this == GeminiMemoStatus.SKIPPED
 
 fun String?.toMemoryCategory(): MemoryCategory {
-    if (this.isNullOrBlank()) return MemoryCategory.UNKNOWN
+    if (this.isNullOrBlank()) return MemoryCategory.OTHERS
     return runCatching { MemoryCategory.valueOf(this.uppercase()) }
-        .getOrDefault(MemoryCategory.UNKNOWN)
+        .getOrDefault(MemoryCategory.OTHERS)
+}
+
+/**
+ * rank 순 분류 목록을 도메인 카테고리 리스트로 변환한다.
+ * 실제 카테고리(OTHERS 제외)만 중복 없이 최대 2개 취하고, 하나도 없으면 [OTHERS] 한 개를 반환한다.
+ */
+fun List<ClassificationEntity>.toMemoryCategories(): List<MemoryCategory> {
+    val resolved = sortedBy { it.rank }
+        .map { it.label.toMemoryCategory() }
+        .filter { it != MemoryCategory.OTHERS }
+        .distinct()
+        .take(MemoryCategory.MAX_PER_MEMORY)
+    return resolved.ifEmpty { listOf(MemoryCategory.OTHERS) }
 }
 
 fun buildFtsRow(aggregate: MemoryAggregate): MemorySearchFts = MemorySearchFts(

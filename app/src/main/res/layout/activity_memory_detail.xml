@@ -55,12 +55,23 @@
                     android:textStyle="bold" />
             </FrameLayout>
 
+            <!-- 위쪽 행: 카테고리(최대 2개, 사용자 편집) -->
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/detailCategoryChipGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="16dp"
+                android:paddingTop="14dp"
+                android:paddingEnd="16dp"
+                app:singleLine="true" />
+
+            <!-- 아래쪽 행: 태그 -->
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/detailChipGroup"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:paddingStart="16dp"
-                android:paddingTop="14dp"
+                android:paddingTop="6dp"
                 android:paddingEnd="16dp" />
 
             <TextView
@@ -72,22 +83,45 @@
                 android:textColor="@color/snap_text_secondary"
                 android:textSize="12sp" />
 
-            <com.google.android.material.textfield.TextInputLayout
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="16dp"
-                android:layout_marginTop="12dp"
-                android:hint="저장 이유 메모">
+                android:layout_marginTop="12dp">
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/memoEditText"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="top"
-                    android:inputType="textMultiLine|textCapSentences"
-                    android:minLines="4"
-                    android:textColor="@color/snap_text" />
-            </com.google.android.material.textfield.TextInputLayout>
+                    android:hint="저장 이유 메모">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/memoEditText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="top"
+                        android:inputType="textMultiLine|textCapSentences"
+                        android:minLines="4"
+                        android:textColor="@color/snap_text" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <ProgressBar
+                    android:id="@+id/memoLoadingIndicator"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:indeterminate="true"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/geminiSuggestButton"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="10dp"
+                android:text="Gemini 메모 추천받기"
+                app:icon="@drawable/ic_spark" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/geminiSuggestionChip"
@@ -178,7 +212,7 @@
             android:layout_width="0dp"
             android:layout_height="52dp"
             android:layout_weight="1"
-            android:text="메모 저장"
+            android:text="저장"
             app:icon="@drawable/ic_check" />
     </LinearLayout>
 </LinearLayout>

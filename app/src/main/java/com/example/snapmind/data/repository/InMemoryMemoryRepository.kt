@@ -14,8 +14,11 @@ import com.example.snapmind.data.model.TagCount
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -28,6 +31,10 @@ class InMemoryMemoryRepository @Inject constructor(
 ) : MemoryRepository {
     private val _memories = MutableStateFlow(seedMemories())
     override val memories: StateFlow<List<MemoryItem>> = _memories.asStateFlow()
+
+    override val geminiInProgress: StateFlow<Set<Long>> = MutableStateFlow(emptySet<Long>()).asStateFlow()
+    override val geminiEvents: SharedFlow<GeminiSuggestionEvent> =
+        MutableSharedFlow<GeminiSuggestionEvent>().asSharedFlow()
 
     override fun getMemory(memoryId: Long): MemoryItem? =
         _memories.value.firstOrNull { it.id == memoryId }
@@ -76,7 +83,7 @@ class InMemoryMemoryRepository @Inject constructor(
                 memory.tags.any { it.contains(normalizedQuery, ignoreCase = true) } ||
                 memory.youtubeTitle?.contains(normalizedQuery, ignoreCase = true) == true
             val matchesTag = normalizedTag == null || memory.tags.any { it.normalizeTag() == normalizedTag }
-            val matchesCategory = category == null || memory.category == category
+            val matchesCategory = category == null || category in memory.categories
             matchesQuery && matchesTag && matchesCategory
         }
     }
@@ -89,7 +96,7 @@ class InMemoryMemoryRepository @Inject constructor(
     }
 
     override fun filterByCategory(category: MemoryCategory?): List<MemoryItem> =
-        activeMemories().filter { category == null || it.category == category }
+        activeMemories().filter { category == null || category in it.categories }
 
     override suspend fun importImage(
         sourceUri: Uri,
@@ -122,7 +129,7 @@ class InMemoryMemoryRepository @Inject constructor(
             id = nextId,
             imageUri = targetFile.toUri().toString(),
             sourceLabel = sourceLabel,
-            category = MemoryCategory.UNKNOWN,
+            categories = listOf(MemoryCategory.OTHERS),
             memo = initialMemo.trim().ifBlank { "새 이미지 분석을 준비 중입니다." },
             ocrText = "",
             tags = initialTags
@@ -163,6 +170,23 @@ class InMemoryMemoryRepository @Inject constructor(
             item.copy(tags = item.tags.filterNot { it.normalizeTag() == normalized })
         }
     }
+
+    override fun updateTags(memoryId: Long, tags: List<String>) {
+        val normalized = tags
+            .map { "#" + it.trim().removePrefix("#") }
+            .filter { it.length > 1 }
+            .distinctBy { it.normalizeTag() }
+        updateMemory(memoryId) { it.copy(tags = normalized) }
+    }
+
+    override fun updateCategories(memoryId: Long, categories: List<MemoryCategory>) {
+        val resolved = categories.distinct().take(MemoryCategory.MAX_PER_MEMORY)
+        updateMemory(memoryId) { it.copy(categories = resolved) }
+    }
+
+    override fun requestGeminiSuggestion(memoryId: Long) = Unit
+
+    override fun setViewingMemory(memoryId: Long?) = Unit
 
     override suspend fun listAllTags(): List<TagCount> = tags()
 

@@ -25,23 +25,34 @@ import com.example.snapmind.data.local.entity.TagAssignmentSource
 import com.example.snapmind.data.local.entity.TagEntity
 import com.example.snapmind.data.model.CategoryCount
 import com.example.snapmind.data.model.MemoryCategory
+import com.example.snapmind.data.local.entity.ClassificationEntity
+import com.example.snapmind.data.local.entity.GeminiMemoStatus
+import com.example.snapmind.data.local.entity.StandardProcessingStatus
 import com.example.snapmind.data.model.MemoryItem
 import com.example.snapmind.data.model.TagCount
+import com.example.snapmind.data.remote.common.GeminiMemoSuggester
 import com.example.snapmind.data.work.LocalMemoryProcessingWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import android.util.Log
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @Singleton
@@ -58,6 +69,7 @@ class RoomMemoryRepository @Inject constructor(
     private val imageImporter: ImageImporter,
     private val tagAssigner: TagAssigner,
     private val pdfExporter: PdfExporter,
+    private val geminiSuggester: GeminiMemoSuggester,
     private val dispatcherProvider: DispatcherProvider,
 ) : MemoryRepository {
 
@@ -68,6 +80,18 @@ class RoomMemoryRepository @Inject constructor(
 
     private val _memories = MutableStateFlow<List<MemoryItem>>(emptyList())
     override val memories: StateFlow<List<MemoryItem>> = _memories.asStateFlow()
+
+    private val _geminiInProgress = MutableStateFlow<Set<Long>>(emptySet())
+    override val geminiInProgress: StateFlow<Set<Long>> = _geminiInProgress.asStateFlow()
+
+    private val _geminiEvents = MutableSharedFlow<GeminiSuggestionEvent>(extraBufferCapacity = 4)
+    override val geminiEvents: SharedFlow<GeminiSuggestionEvent> = _geminiEvents.asSharedFlow()
+
+    /** 진행 중인 추천 작업(메모리 id별). 명시적 메모 저장 시 취소에 사용. */
+    private val geminiJobs = ConcurrentHashMap<Long, Job>()
+
+    /** 현재 상세 화면에 떠 있는 메모리 id. 추천 완료 시 칩 vs 자동 적용을 가른다. */
+    @Volatile private var viewingMemoryId: Long? = null
 
     @Volatile private var snapshot: List<MemoryItem> = emptyList()
     @Volatile private var categorySnapshot: List<CategoryCount> = emptyList()
@@ -118,12 +142,12 @@ class RoomMemoryRepository @Inject constructor(
             val matchesQuery = q.isBlank() ||
                 memory.memo.contains(q, ignoreCase = true) ||
                 memory.ocrText.contains(q, ignoreCase = true) ||
-                memory.category.displayName.contains(q, ignoreCase = true) ||
+                memory.categories.any { it.displayName.contains(q, ignoreCase = true) } ||
                 memory.tags.any { it.contains(q, ignoreCase = true) } ||
                 memory.youtubeTitle?.contains(q, ignoreCase = true) == true
             val matchesTag = normalizedTag == null ||
                 memory.tags.any { TagAssigner.normalize(it) == normalizedTag }
-            val matchesCategory = category == null || memory.category == category
+            val matchesCategory = category == null || category in memory.categories
             matchesQuery && matchesTag && matchesCategory
         }
     }
@@ -136,7 +160,7 @@ class RoomMemoryRepository @Inject constructor(
     }
 
     override fun filterByCategory(category: MemoryCategory?): List<MemoryItem> =
-        activeMemories().filter { category == null || it.category == category }
+        activeMemories().filter { category == null || category in it.categories }
 
     override suspend fun importImage(
         sourceUri: Uri,
@@ -267,6 +291,8 @@ class RoomMemoryRepository @Inject constructor(
     }
 
     override fun updateMemo(memoryId: Long, memo: String) {
+        // 사용자가 직접 쓴 메모를 명시적으로 저장하면, 진행 중인 추천이 본문을 덮어쓰지 않도록 취소한다.
+        cancelGeminiJob(memoryId)
         scope.launch {
             val now = System.currentTimeMillis()
             val existing = memoDao.getByMemoryId(memoryId)
@@ -313,6 +339,71 @@ class RoomMemoryRepository @Inject constructor(
         refreshFts(memoryId)
     }
 
+    override fun updateTags(memoryId: Long, tags: List<String>) {
+        scope.launch {
+            val now = System.currentTimeMillis()
+            val targetNorm = tags.mapNotNull { TagAssigner.normalize(it) }.toSet()
+            val currentTags = memoryTagDao.activeTagsForMemory(memoryId)
+                .mapNotNull { tagDao.findById(it.tagId) }
+            val currentNorm = currentTags.map { it.name }.toSet()
+
+            var changed = false
+            // 제거: 현재 있으나 목표에 없는 태그
+            currentTags.forEach { tag ->
+                if (tag.name !in targetNorm) {
+                    tagAssigner.removeByUser(memoryId, tag.id, now)
+                    changed = true
+                }
+            }
+            // 추가: 목표에 있으나 현재 없는 태그 (원본 표시명으로 부여)
+            tags.forEach { raw ->
+                val norm = TagAssigner.normalize(raw) ?: return@forEach
+                if (norm !in currentNorm) {
+                    tagAssigner.assign(
+                        memoryId = memoryId,
+                        request = TagAssignmentRequest(
+                            rawName = raw,
+                            assignedBy = TagAssignedBy.USER,
+                            sources = setOf(TagAssignmentSource.USER),
+                        ),
+                        now = now,
+                    )
+                    changed = true
+                }
+            }
+            if (changed) {
+                memoryItemDao.touchUpdatedAt(memoryId, now)
+                refreshFts(memoryId)
+            }
+        }
+    }
+
+    override fun updateCategories(memoryId: Long, categories: List<MemoryCategory>) {
+        scope.launch {
+            val now = System.currentTimeMillis()
+            // 사용자 지정 카테고리(최대 2개)를 rank 1·2로 저장해 모델 분류를 덮어쓴다.
+            val rows = categories
+                .distinct()
+                .take(MemoryCategory.MAX_PER_MEMORY)
+                .mapIndexed { index, category ->
+                    ClassificationEntity(
+                        memoryId = memoryId,
+                        label = category.name.lowercase(),
+                        confidence = 1f,
+                        modelVersion = USER_CATEGORY_VERSION,
+                        rank = index + 1,
+                        createdAt = now,
+                    )
+                }
+            classificationDao.deleteByMemoryId(memoryId)
+            if (rows.isNotEmpty()) classificationDao.insertAll(rows)
+            // 사용자가 직접 지정했으므로 분류 단계를 완료(SUCCESS)로 마킹해 ERROR 배지를 해소한다.
+            memoryItemDao.setClassificationStatus(memoryId, StandardProcessingStatus.SUCCESS, now)
+            memoryItemDao.touchUpdatedAt(memoryId, now)
+            refreshFts(memoryId)
+        }
+    }
+
     override suspend fun listAllTags(): List<TagCount> {
         val counts = tagDao.allTagCounts().associate { it.name to it.count }
         return tagDao.getAllActive().map { tag ->
@@ -356,6 +447,55 @@ class RoomMemoryRepository @Inject constructor(
             refreshFts(id)
         }
         tagSnapshot = computeTagCounts()
+    }
+
+    override fun setViewingMemory(memoryId: Long?) {
+        viewingMemoryId = memoryId
+    }
+
+    override fun requestGeminiSuggestion(memoryId: Long) {
+        if (memoryId <= 0L || geminiJobs.containsKey(memoryId)) return
+        _geminiInProgress.update { it + memoryId }
+        // start=LAZY: 맵 등록·완료 핸들러 연결 후 시작해 조기 완료 경합을 피한다.
+        val job = scope.launch(start = CoroutineStart.LAZY) {
+            val result: AppResult<Unit> = when (val r = geminiSuggester.suggest(memoryId)) {
+                is AppResult.Success -> {
+                    val suggestion = r.data
+                    val now = System.currentTimeMillis()
+                    if (viewingMemoryId == memoryId) {
+                        // 화면에 머무는 중: 추천 칩으로 노출하고 사용자의 수락/해제를 기다린다.
+                        memoDao.updateGeminiSuggestion(memoryId, suggestion, now)
+                        memoryItemDao.setGeminiMemoStatus(memoryId, GeminiMemoStatus.SUGGESTED, now)
+                    } else {
+                        // 화면을 나간 상태: 추천을 메모 본문에 자동 반영하고 완료 처리한다.
+                        memoDao.updateBody(memoryId, suggestion, now)
+                        memoDao.updateGeminiSuggestion(memoryId, null, now)
+                        memoryItemDao.setGeminiMemoStatus(memoryId, GeminiMemoStatus.ACCEPTED, now)
+                        memoryItemDao.touchUpdatedAt(memoryId, now)
+                        refreshFts(memoryId)
+                    }
+                    AppResult.Success(Unit)
+                }
+                is AppResult.Error -> AppResult.Error(r.error)
+            }
+            _geminiEvents.tryEmit(GeminiSuggestionEvent(memoryId, result))
+        }
+        geminiJobs[memoryId] = job
+        job.invokeOnCompletion {
+            geminiJobs.remove(memoryId, job)
+            _geminiInProgress.update { it - memoryId }
+        }
+        job.start()
+    }
+
+    /** 진행 중인 추천 작업을 취소하고 RUNNING 상태가 남지 않도록 종료 상태로 마킹한다. */
+    private fun cancelGeminiJob(memoryId: Long) {
+        val job = geminiJobs.remove(memoryId) ?: return
+        job.cancel()
+        _geminiInProgress.update { it - memoryId }
+        scope.launch {
+            memoryItemDao.setGeminiMemoStatus(memoryId, GeminiMemoStatus.SKIPPED, System.currentTimeMillis())
+        }
     }
 
     override fun acceptGeminiSuggestion(memoryId: Long) {
@@ -442,7 +582,7 @@ class RoomMemoryRepository @Inject constructor(
             ocr = ocrTextDao.getByMemoryId(entity.id),
             memo = memoDao.getByMemoryId(entity.id),
             tags = tagEntities,
-            topClassification = classificationDao.getTopByMemoryId(entity.id),
+            classifications = classificationDao.getTopCategories(entity.id),
             youtubeLink = youtubeLinkDao.getByMemoryId(entity.id),
         )
     }
@@ -475,6 +615,7 @@ class RoomMemoryRepository @Inject constructor(
     companion object {
         private const val TAG = "RoomMemoryRepository"
         private const val DEFAULT_MEMO_BODY = "새 이미지 분석을 준비 중입니다."
+        private const val USER_CATEGORY_VERSION = "user"
 
         @Suppress("unused")
         private val MEMORIES_STATE = SharingStarted.WhileSubscribed(5_000)

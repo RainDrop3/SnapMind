@@ -25,7 +25,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Vision, Gemini, YouTube API는 키가 없으면 자동으로 SKIPPED 처리됩니다."
+            android:text="Vision, Gemini, YouTube API 키는 앱에 내장되어 있습니다. 각 기능은 아래 스위치로 켜고 끌 수 있어요."
             android:textColor="@color/snap_text_secondary"
             android:textSize="14sp" />
 
@@ -39,21 +39,6 @@
             android:textColor="@color/snap_text"
             app:useMaterialThemeColors="true" />
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Vision API 키"
-            app:endIconMode="password_toggle">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/visionApiKeyEditText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textPassword"
-                android:singleLine="true"
-                android:textColor="@color/snap_text" />
-        </com.google.android.material.textfield.TextInputLayout>
-
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/geminiSwitch"
             android:layout_width="match_parent"
@@ -63,21 +48,6 @@
             android:textColor="@color/snap_text"
             app:useMaterialThemeColors="true" />
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Gemini API 키"
-            app:endIconMode="password_toggle">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/geminiApiKeyEditText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textPassword"
-                android:singleLine="true"
-                android:textColor="@color/snap_text" />
-        </com.google.android.material.textfield.TextInputLayout>
-
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/youtubeSwitch"
             android:layout_width="match_parent"
@@ -86,21 +56,6 @@
             android:text="YouTube 딥링크"
             android:textColor="@color/snap_text"
             app:useMaterialThemeColors="true" />
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="YouTube API 키"
-            app:endIconMode="password_toggle">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/youtubeApiKeyEditText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textPassword"
-                android:singleLine="true"
-                android:textColor="@color/snap_text" />
-        </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/clearPdfCacheButton"

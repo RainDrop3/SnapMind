@@ -1,9 +1,6 @@
 package com.example.snapmind.data.work
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.net.Uri
-import android.util.Base64
 import androidx.core.net.toUri
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
@@ -11,7 +8,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.example.snapmind.core.image.BitmapDecoder
+import com.example.snapmind.core.image.RemoteImageEncoder
 import com.example.snapmind.core.result.AppResult
 import com.example.snapmind.core.settings.AppPreferences
 import com.example.snapmind.data.local.dao.MemoDao
@@ -29,7 +26,6 @@ import com.example.snapmind.data.repository.MemoryAggregateBuilder
 import com.example.snapmind.data.repository.refreshFtsRow
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import java.io.ByteArrayOutputStream
 
 @HiltWorker
 class RemoteEnrichmentWorker @AssistedInject constructor(
@@ -44,6 +40,7 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
     private val remoteRepository: RemoteEnrichmentRepository,
     private val prefs: AppPreferences,
     private val aggregateBuilder: MemoryAggregateBuilder,
+    private val imageEncoder: RemoteImageEncoder,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -51,12 +48,12 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
         if (memoryId <= 0L) return Result.failure()
         val entity = memoryItemDao.getById(memoryId) ?: return Result.success()
         val flags = prefs.current()
-        val needsImagePayload = (flags.visionEnabled && flags.visionApiKey.isNotBlank()) ||
-            (flags.geminiEnabled && flags.geminiApiKey.isNotBlank())
-        val base64Jpeg = if (needsImagePayload) encodeJpeg(entity.imageUri.toUri()) else null
+        val needsImagePayload = flags.visionEnabled && flags.visionApiKey.isNotBlank()
+        val base64Jpeg = if (needsImagePayload) imageEncoder.encodeBase64Jpeg(entity.imageUri.toUri()) else null
 
         enrichVision(memoryId, flags.visionEnabled, flags.visionApiKey, base64Jpeg)
-        enrichGemini(memoryId, flags.geminiEnabled, flags.geminiApiKey, base64Jpeg)
+        // Gemini 메모 추천은 자동 실행하지 않고, 상세 화면 버튼(GeminiMemoSuggester)에서 온디맨드로만 호출한다.
+        memoryItemDao.setGeminiMemoStatus(memoryId, GeminiMemoStatus.SKIPPED, System.currentTimeMillis())
         enrichYoutube(memoryId, flags.youtubeEnabled, flags.youtubeApiKey)
         refreshFtsRow(memoryId, memoryItemDao, aggregateBuilder, memorySearchDao)
         enqueueAutoTagging(memoryId)
@@ -96,38 +93,6 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
             }
             is AppResult.Error -> {
                 memoryItemDao.setVisionLabelStatus(memoryId, OptionalRemoteProcessingStatus.FAILED, now())
-            }
-        }
-    }
-
-    private suspend fun enrichGemini(
-        memoryId: Long,
-        enabled: Boolean,
-        apiKey: String,
-        base64Jpeg: String?,
-    ) {
-        val now = { System.currentTimeMillis() }
-        if (!enabled || apiKey.isBlank()) {
-            memoryItemDao.setGeminiMemoStatus(memoryId, GeminiMemoStatus.SKIPPED, now())
-            return
-        }
-        if (base64Jpeg == null) {
-            memoryItemDao.setGeminiMemoStatus(memoryId, GeminiMemoStatus.FAILED, now())
-            return
-        }
-        memoryItemDao.setGeminiMemoStatus(memoryId, GeminiMemoStatus.RUNNING, now())
-        when (val result = remoteRepository.suggestMemo(base64Jpeg, apiKey)) {
-            is AppResult.Success -> {
-                val suggestion = result.data.text.trim()
-                if (suggestion.isBlank()) {
-                    memoryItemDao.setGeminiMemoStatus(memoryId, GeminiMemoStatus.SKIPPED, now())
-                } else {
-                    memoDao.updateGeminiSuggestion(memoryId, suggestion, now())
-                    memoryItemDao.setGeminiMemoStatus(memoryId, GeminiMemoStatus.SUGGESTED, now())
-                }
-            }
-            is AppResult.Error -> {
-                memoryItemDao.setGeminiMemoStatus(memoryId, GeminiMemoStatus.FAILED, now())
             }
         }
     }
@@ -182,21 +147,6 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
         return memoDao.getByMemoryId(memoryId)?.body.orEmpty().trim().take(MAX_YOUTUBE_QUERY_LENGTH)
     }
 
-    private fun encodeJpeg(uri: Uri): String? {
-        val bitmap = BitmapDecoder.decodeSampled(
-            contentResolver = applicationContext.contentResolver,
-            uri = uri,
-            targetWidth = REMOTE_IMAGE_MAX_SIZE,
-            targetHeight = REMOTE_IMAGE_MAX_SIZE,
-            config = Bitmap.Config.ARGB_8888,
-        ) ?: return null
-        return ByteArrayOutputStream().use { output ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
-            bitmap.recycle()
-            Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
-        }
-    }
-
     private fun enqueueAutoTagging(memoryId: Long) {
         WorkManager.getInstance(applicationContext).enqueue(
             OneTimeWorkRequestBuilder<AutoTaggingWorker>()
@@ -206,8 +156,6 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
     }
 
     private companion object {
-        const val REMOTE_IMAGE_MAX_SIZE = 768
-        const val JPEG_QUALITY = 82
         const val MAX_YOUTUBE_QUERY_LENGTH = 120
     }
 }

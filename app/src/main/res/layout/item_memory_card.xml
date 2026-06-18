@@ -47,11 +47,13 @@
                 android:layout_gravity="start|top"
                 android:layout_margin="8dp"
                 android:background="@drawable/bg_badge_soft"
-                android:maxLines="1"
+                android:gravity="center_horizontal"
+                android:lineSpacingExtra="1dp"
+                android:maxLines="2"
                 android:textColor="@color/snap_primary"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                tools:text="Code" />
+                tools:text="Chat\nFood" />
 
             <TextView
                 android:id="@+id/statusBadge"

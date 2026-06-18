@@ -63,7 +63,11 @@ class MemoryGridAdapter(
             root.setOnClickListener { onMemoryClick(item) }
             root.setOnLongClickListener { onMemoryLongClick(item) }
             favoriteButton.setOnClickListener { onActionClick(item) }
-            categoryBadge.text = item.category.displayName
+            // 최대 2개 카테고리를 행을 구분해 표시한다.
+            categoryBadge.text = item.categories
+                .take(MemoryCategory.MAX_PER_MEMORY)
+                .joinToString("\n") { it.displayName }
+                .ifBlank { MemoryCategory.OTHERS.displayName }
             memoText.text = item.memo.ifBlank { "메모가 아직 없어요. 상세 화면에서 저장 이유를 남겨보세요." }
             timeText.text = DateUtils.getRelativeTimeSpanString(
                 item.createdAtMillis,
@@ -122,15 +126,13 @@ class MemoryGridAdapter(
 
         private fun MemoryCategory.thumbnailBackground(): Int =
             when (this) {
-                MemoryCategory.CODE -> R.drawable.bg_thumbnail_code
-                MemoryCategory.SHOPPING -> R.drawable.bg_thumbnail_shopping
                 MemoryCategory.RECEIPT -> R.drawable.bg_thumbnail_receipt
                 MemoryCategory.CHAT -> R.drawable.bg_thumbnail_chat
                 MemoryCategory.YOUTUBE -> R.drawable.bg_thumbnail_youtube
                 MemoryCategory.TRAVEL,
                 MemoryCategory.FOOD,
                 MemoryCategory.DOCUMENT,
-                MemoryCategory.UNKNOWN -> R.drawable.bg_thumbnail_receipt
+                MemoryCategory.OTHERS -> R.drawable.bg_thumbnail_receipt
             }
 
         private fun CardActionMode.iconRes(): Int =

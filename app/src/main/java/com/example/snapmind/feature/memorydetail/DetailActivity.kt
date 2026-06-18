@@ -35,6 +35,8 @@ class DetailActivity : AppCompatActivity() {
     private var ocrVisible = false
     private var suppressMemoTextWatcher = false
     private var currentMemory: MemoryItem? = null
+    private var currentTags: List<String> = emptyList()
+    private var currentCategories: List<MemoryCategory> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,10 +50,16 @@ class DetailActivity : AppCompatActivity() {
             ocrVisible = !ocrVisible
             binding.ocrText.visibility = if (ocrVisible) View.VISIBLE else View.GONE
         }
+        // "저장"은 별도 변경 없이도 항시 활성화. 클릭 시 미저장 메모/태그/카테고리를 일괄 반영한다.
+        binding.saveMemoButton.isEnabled = true
         binding.saveMemoButton.setOnClickListener {
-            if (viewModel.saveMemo()) {
-                Toast.makeText(this, "메모를 저장했어요.", Toast.LENGTH_SHORT).show()
-                goHome()
+            when (viewModel.save()) {
+                SaveResult.SAVED -> {
+                    Toast.makeText(this, "저장했어요.", Toast.LENGTH_SHORT).show()
+                    goHome()
+                }
+                SaveResult.NO_CATEGORY ->
+                    Toast.makeText(this, "카테고리를 지정해주세요", Toast.LENGTH_SHORT).show()
             }
         }
         binding.favoriteDetailButton.setOnClickListener { viewModel.toggleFavorite() }
@@ -60,6 +68,7 @@ class DetailActivity : AppCompatActivity() {
             Toast.makeText(this, "휴지통으로 이동했어요.", Toast.LENGTH_SHORT).show()
             finish()
         }
+        binding.geminiSuggestButton.setOnClickListener { viewModel.requestGeminiSuggestion() }
         binding.geminiSuggestionChip.setOnClickListener { viewModel.acceptGeminiSuggestion() }
         binding.geminiSuggestionChip.setOnCloseIconClickListener { viewModel.dismissGeminiSuggestion() }
         binding.memoEditText.doOnTextChanged { text, _, _, _ ->
@@ -76,7 +85,42 @@ class DetailActivity : AppCompatActivity() {
                         return@collect
                     }
                     val memory = state.memory ?: return@collect
-                    render(memory, state.memoDraft, state.hasUnsavedMemo)
+                    render(memory, state.memoDraft, state.tags, state.categories)
+                }
+            }
+        }
+
+        // 화면 노출 동안만 "보는 중"으로 표시 → 추천 완료 시 칩 유지, 나간 뒤 완료되면 자동 적용.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.setScreenVisible(true)
+                try {
+                    kotlinx.coroutines.awaitCancellation()
+                } finally {
+                    viewModel.setScreenVisible(false)
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.geminiLoading.collect { loading ->
+                    binding.geminiSuggestButton.isEnabled = !loading
+                    binding.geminiSuggestButton.text =
+                        if (loading) "추천 받는 중…" else "Gemini 메모 추천받기"
+                    // 추천 받는 동안에는 메모 수정 불가 + 칸에 로딩 인디케이터 표시 + 저장 비활성화.
+                    binding.memoEditText.isEnabled = !loading
+                    binding.memoLoadingIndicator.visibility =
+                        if (loading) View.VISIBLE else View.GONE
+                    binding.saveMemoButton.isEnabled = !loading
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.messages.collect { message ->
+                    Toast.makeText(this@DetailActivity, message, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -91,14 +135,21 @@ class DetailActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun render(memory: MemoryItem, memoDraft: String, hasUnsavedMemo: Boolean) {
+    private fun render(
+        memory: MemoryItem,
+        memoDraft: String,
+        tags: List<String>,
+        categories: List<MemoryCategory>,
+    ) {
         currentMemory = memory
-        binding.detailToolbar.title = memory.category.displayName
+        currentTags = tags
+        currentCategories = categories
+        binding.detailToolbar.title = categories.firstOrNull()?.displayName ?: memory.category.displayName
         syncMemoEditText(memoDraft)
-        binding.saveMemoButton.isEnabled = hasUnsavedMemo
         binding.ocrText.text = memory.ocrText.ifBlank { "아직 OCR 텍스트가 준비되지 않았습니다." }
         renderPreview(memory)
-        renderChips(memory)
+        renderCategoryChips(categories)
+        renderTagChips(tags)
         binding.updatedAtText.text = "최근 수정: ${updatedAtFormat.format(Date(memory.updatedAtMillis))}"
         renderSuggestion(memory)
         renderYoutube(memory)
@@ -131,21 +182,38 @@ class DetailActivity : AppCompatActivity() {
         }
     }
 
-    private fun renderChips(memory: MemoryItem) = with(binding.detailChipGroup) {
+    /** 위쪽 행: staged 카테고리. 추가/제거는 "저장" 전까지 draft 에만 반영된다. */
+    private fun renderCategoryChips(categories: List<MemoryCategory>) = with(binding.detailCategoryChipGroup) {
         removeAllViews()
+        categories.forEach { category ->
+            addView(
+                Chip(this@DetailActivity).apply {
+                    text = category.displayName
+                    isCheckable = false
+                    isCloseIconVisible = true
+                    setOnCloseIconClickListener { viewModel.onRemoveCategory(category) }
+                },
+            )
+        }
         addView(
             Chip(this@DetailActivity).apply {
-                text = memory.category.displayName
+                text = "+ 카테고리"
                 isCheckable = false
+                setOnClickListener { showCategoryPicker() }
             },
         )
-        memory.tags.forEach { tag ->
+    }
+
+    /** 아래쪽 행: staged 태그. 추가/제거는 "저장" 전까지 draft 에만 반영된다. */
+    private fun renderTagChips(tags: List<String>) = with(binding.detailChipGroup) {
+        removeAllViews()
+        tags.forEach { tag ->
             addView(
                 Chip(this@DetailActivity).apply {
                     text = tag
                     isCheckable = false
                     isCloseIconVisible = true
-                    setOnCloseIconClickListener { viewModel.removeTag(tag) }
+                    setOnCloseIconClickListener { viewModel.onRemoveTag(tag) }
                 },
             )
         }
@@ -158,9 +226,27 @@ class DetailActivity : AppCompatActivity() {
         )
     }
 
-    /** 전체 태그 목록을 다중 선택 다이얼로그로 띄워 메모리 태그를 추가/해제한다. */
+    /** 고정된 선택 가능 카테고리(code/Others 제외)를 단일 선택 다이얼로그로 띄워 staged 추가한다. */
+    private fun showCategoryPicker() {
+        val options = MemoryCategory.selectable
+        val names = options.map { it.displayName }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("카테고리 추가 (최대 ${MemoryCategory.MAX_PER_MEMORY}개)")
+            .setItems(names) { _, which ->
+                if (!viewModel.onAddCategory(options[which])) {
+                    Toast.makeText(
+                        this,
+                        "카테고리는 최대 ${MemoryCategory.MAX_PER_MEMORY}개까지 지정할 수 있어요.",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
+            .show()
+    }
+
+    /** 전체 태그 목록을 다중 선택 다이얼로그로 띄워 staged 태그를 추가/해제한다("저장" 시 반영). */
     private fun showTagPicker() {
-        val memory = currentMemory ?: return
+        currentMemory ?: return
         lifecycleScope.launch {
             val all = viewModel.allTagNames()
             if (all.isEmpty()) {
@@ -171,7 +257,7 @@ class DetailActivity : AppCompatActivity() {
                 ).show()
                 return@launch
             }
-            val assigned = memory.tags.map { it.removePrefix("#").lowercase() }.toSet()
+            val assigned = currentTags.map { it.removePrefix("#").lowercase() }.toSet()
             val checked = BooleanArray(all.size) { index ->
                 all[index].removePrefix("#").lowercase() in assigned
             }
@@ -179,7 +265,7 @@ class DetailActivity : AppCompatActivity() {
                 .setTitle("태그 선택")
                 .setMultiChoiceItems(all.toTypedArray(), checked) { _, which, isChecked ->
                     val name = all[which]
-                    if (isChecked) viewModel.addTag(name) else viewModel.removeTag(name)
+                    if (isChecked) viewModel.onAddTag(name) else viewModel.onRemoveTag(name)
                 }
                 .setPositiveButton("완료", null)
                 .show()
@@ -202,15 +288,13 @@ class DetailActivity : AppCompatActivity() {
 
     private fun MemoryCategory.thumbnailBackground(): Int =
         when (this) {
-            MemoryCategory.CODE -> R.drawable.bg_thumbnail_code
-            MemoryCategory.SHOPPING -> R.drawable.bg_thumbnail_shopping
             MemoryCategory.RECEIPT -> R.drawable.bg_thumbnail_receipt
             MemoryCategory.CHAT -> R.drawable.bg_thumbnail_chat
             MemoryCategory.YOUTUBE -> R.drawable.bg_thumbnail_youtube
             MemoryCategory.TRAVEL,
             MemoryCategory.FOOD,
             MemoryCategory.DOCUMENT,
-            MemoryCategory.UNKNOWN -> R.drawable.bg_thumbnail_receipt
+            MemoryCategory.OTHERS -> R.drawable.bg_thumbnail_receipt
         }
 
     companion object {
