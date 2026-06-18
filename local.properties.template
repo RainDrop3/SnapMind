@@ -1,0 +1,13 @@
+# SnapMind 로컬 설정 템플릿
+# 이 파일을 복사해서 같은 폴더에 `local.properties` 로 저장한 뒤 값을 채우세요.
+# `local.properties` 는 .gitignore 에 등록되어 있어 git 에 커밋되지 않습니다.
+
+# Android SDK 경로 (Android Studio 가 보통 자동으로 채워 줍니다)
+# 예: sdk.dir=C\:\\Users\\<사용자>\\AppData\\Local\\Android\\Sdk
+sdk.dir=
+
+# 개발자 발급 원격 API 키 — 빌드 시 BuildConfig 에 내장됩니다.
+# 비워 두면 해당 기능은 앱에서 자동으로 SKIPPED 처리됩니다.
+GEMINI_API_KEY=
+VISION_API_KEY=
+YOUTUBE_API_KEY=

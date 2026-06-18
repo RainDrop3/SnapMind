@@ -1,9 +1,19 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.kotlin.android)
     id("kotlin-kapt")
 }
+
+// 개발자 발급 API 키는 git에 커밋되지 않는 local.properties 에서 읽어 BuildConfig 에 내장한다.
+// 키가 없으면 빈 문자열 → 해당 원격 기능은 자동으로 SKIPPED 처리된다. (템플릿: local.properties.template)
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+fun localProperty(key: String): String = localProperties.getProperty(key, "").trim()
 
 android {
     namespace = "com.example.snapmind"
@@ -17,6 +27,10 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "GEMINI_API_KEY", "\"${localProperty("GEMINI_API_KEY")}\"")
+        buildConfigField("String", "VISION_API_KEY", "\"${localProperty("VISION_API_KEY")}\"")
+        buildConfigField("String", "YOUTUBE_API_KEY", "\"${localProperty("YOUTUBE_API_KEY")}\"")
 
         kapt {
             arguments {

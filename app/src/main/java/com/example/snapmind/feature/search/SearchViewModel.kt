@@ -60,7 +60,7 @@ class SearchViewModel @Inject constructor(
             val base = repository.searchFts(q)
             base.filter { item ->
                 (t == null || item.tags.any { matchesTag(it, t) }) &&
-                    (c == null || item.category == c)
+                    (c == null || c in item.categories)
             }
         }
 

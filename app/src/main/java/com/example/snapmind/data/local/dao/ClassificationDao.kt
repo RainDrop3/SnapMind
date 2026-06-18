@@ -18,6 +18,10 @@ interface ClassificationDao {
     @Query("SELECT * FROM classifications WHERE memoryId = :memoryId AND rank = 1 LIMIT 1")
     suspend fun getTopByMemoryId(memoryId: Long): ClassificationEntity?
 
+    /** 한 메모리에 부여된 상위 카테고리(최대 2개)를 rank 순으로 반환. */
+    @Query("SELECT * FROM classifications WHERE memoryId = :memoryId AND rank <= 2 ORDER BY rank ASC")
+    suspend fun getTopCategories(memoryId: Long): List<ClassificationEntity>
+
     @Query("DELETE FROM classifications WHERE memoryId = :memoryId")
     suspend fun deleteByMemoryId(memoryId: Long): Int
 
@@ -26,7 +30,7 @@ interface ClassificationDao {
         SELECT classifications.label AS label, COUNT(DISTINCT classifications.memoryId) AS count
         FROM classifications
         JOIN memory_items ON memory_items.id = classifications.memoryId
-        WHERE classifications.rank = 1
+        WHERE classifications.rank <= 2
           AND memory_items.deletedAt IS NULL
         GROUP BY classifications.label
         ORDER BY count DESC, classifications.label ASC

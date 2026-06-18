@@ -2,6 +2,7 @@ package com.example.snapmind.core.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.snapmind.BuildConfig
 import com.example.snapmind.core.pdf.PdfExporter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -39,17 +40,13 @@ class AppPreferences @Inject constructor(
         get() = prefs.getBoolean(KEY_YOUTUBE, true)
         set(value) { prefs.edit().putBoolean(KEY_YOUTUBE, value).apply() }
 
-    var visionApiKey: String
-        get() = prefs.getString(KEY_VISION_API_KEY, "").orEmpty()
-        set(value) { prefs.edit().putString(KEY_VISION_API_KEY, value.trim()).apply() }
+    // API 키는 사용자 입력이 아니라 빌드 시 BuildConfig 에 내장된 개발자 키를 사용한다.
+    // (값 공급: local.properties → app/build.gradle.kts → BuildConfig)
+    val visionApiKey: String get() = BuildConfig.VISION_API_KEY.trim()
 
-    var geminiApiKey: String
-        get() = prefs.getString(KEY_GEMINI_API_KEY, "").orEmpty()
-        set(value) { prefs.edit().putString(KEY_GEMINI_API_KEY, value.trim()).apply() }
+    val geminiApiKey: String get() = BuildConfig.GEMINI_API_KEY.trim()
 
-    var youtubeApiKey: String
-        get() = prefs.getString(KEY_YOUTUBE_API_KEY, "").orEmpty()
-        set(value) { prefs.edit().putString(KEY_YOUTUBE_API_KEY, value.trim()).apply() }
+    val youtubeApiKey: String get() = BuildConfig.YOUTUBE_API_KEY.trim()
 
     fun current(): RemoteFeatureFlags = RemoteFeatureFlags(
         visionEnabled = visionEnabled,
@@ -87,8 +84,5 @@ class AppPreferences @Inject constructor(
         private const val KEY_VISION = "vision_enabled"
         private const val KEY_GEMINI = "gemini_enabled"
         private const val KEY_YOUTUBE = "youtube_enabled"
-        private const val KEY_VISION_API_KEY = "vision_api_key"
-        private const val KEY_GEMINI_API_KEY = "gemini_api_key"
-        private const val KEY_YOUTUBE_API_KEY = "youtube_api_key"
     }
 }

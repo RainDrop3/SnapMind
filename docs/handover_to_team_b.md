@@ -98,3 +98,27 @@
 - `PdfExporter.EXPORT_SUBDIR_NAME`이 public const로 공개됨. B가 PDF 캐시 경로를 참조해야 할 경우 사용.
 - `ImageImporter`에서 `SecurityException` → `AppError.PermissionDenied`, `FileNotFoundException` → `AppError.FileNotFound`로 분리 처리. B의 ShareActivity에서 import 실패 처리 시 참고.
 - `RoomMemoryRepository.scope`에 `CoroutineExceptionHandler`가 추가됨. fire-and-forget 메서드에서 발생한 예외가 Logcat에 기록되지만 앱 크래시 없이 계속 동작.
+
+---
+
+## Phase 7 — API 키 내장 · Gemini 온디맨드 추천 (사용자 승인 하 예외, 2026-06-16)
+
+**B 코드 직접 변경 (4개 파일):**
+
+1. `feature/settings/SettingsFragment.kt` — API 키 입력 바인딩(`bindApiKeys()`) 제거. on/off 스위치 바인딩만 유지.
+2. `res/layout/fragment_settings.xml` — Vision/Gemini/YouTube **API 키 입력란 3개 제거**. 안내 문구를 "키는 앱에 내장" 으로 변경.
+3. `res/layout/activity_memory_detail.xml` — 메모 입력란 아래에 `geminiSuggestButton`("Gemini 메모 추천받기") 추가.
+4. `feature/memorydetail/DetailActivity.kt` — 버튼 클릭 → `viewModel.requestGeminiSuggestion()`. `geminiLoading`(버튼 비활성/로딩 텍스트), `messages`(토스트) 옵저버 추가.
+
+**키 공급 방식 변경 (사용자 입력 → 개발자 내장):**
+
+- API 키는 더 이상 사용자 입력이 아니라 `local.properties` → `BuildConfig` 로 **빌드 시 내장**된다. `app/build.gradle.kts`가 `GEMINI/VISION/YOUTUBE_API_KEY`를 읽어 `buildConfigField`로 주입.
+- `AppPreferences.visionApiKey/geminiApiKey/youtubeApiKey`는 이제 **get-only**이며 `BuildConfig` 값을 반환(SharedPreferences 보관·setter 제거). on/off 플래그(`*Enabled`)는 그대로 SharedPreferences 유지.
+- `local.properties`는 `.gitignore` 등록 상태 → 키는 git에 커밋되지 않음. 커밋용 템플릿 `local.properties.template` 추가. **B는 로컬에서 `local.properties`에 키를 채워야 원격 기능이 동작**한다(없으면 빈 문자열 → SKIPPED).
+
+**Gemini 추천: 자동 → 온디맨드 전환:**
+
+- `RemoteEnrichmentWorker`는 import 시 Gemini를 **자동 호출하지 않고** `geminiMemoStatus = SKIPPED`로만 마킹. (Vision/YouTube 자동 처리는 그대로.)
+- 추천은 상세 화면 버튼에서만 생성됨 → 신규 `data/remote/common/GeminiMemoSuggester` 가 이미지 인코딩 + `suggestMemo` 호출 + `geminiSuggestion`/status 저장을 담당. `DetailViewModel`이 주입받아 사용.
+- 이미지 인코딩 로직은 `core/image/RemoteImageEncoder`(신규)로 공통화 — 워커(Vision)와 추천기(Gemini)가 공유. 워커의 기존 private `encodeJpeg`는 제거됨.
+- 추천 결과 칩(`geminiSuggestionChip`) 소비·수락·해제 흐름은 기존과 동일.

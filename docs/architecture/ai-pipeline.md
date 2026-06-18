@@ -15,7 +15,7 @@ Image URI
   → TFLite preprocessing
   → TFLite CNN inference             [on-device]
   → Vision API label request         [remote · Retrofit · if enabled]
-  → Gemini API memo recommendation   [remote · Retrofit · if enabled]
+  → (Gemini memo recommendation is NOT auto-run; on-demand via detail screen button)
   → YouTube title search             [remote · Retrofit · if youtube category and enabled]
   → Tag rule engine (OCR + Vision + TFLite)
   → Room persistence (FTS indexed)
@@ -64,12 +64,18 @@ App-level categories add `unknown`, which is derived at runtime via thresholding
 
 ## Gemini API Flow (Memo Recommendation)
 
-1. Confirm Gemini memo recommendation is enabled and an API key is configured.
-2. Send a downsampled image payload to Gemini API with a short prompt.
-3. Receive candidate memo sentence.
-4. Persist the suggestion in `MemoEntity.geminiSuggestion` and set `geminiMemoStatus = SUGGESTED`.
-5. Display recommendation in detail screen; user accepts, edits, or dismisses.
-6. Persist final memo in `MemoEntity.body`.
+Gemini recommendation is **on-demand only** — it is no longer part of the automatic import pipeline.
+The remote enrichment worker marks `geminiMemoStatus = SKIPPED` at import; the suggestion is produced
+only when the user taps the "Gemini 메모 추천받기" button on the detail screen
+(`GeminiMemoSuggester`, called from `DetailViewModel.requestGeminiSuggestion()`).
+
+1. User taps the recommendation button on the detail screen.
+2. Confirm Gemini recommendation is enabled (settings switch) and an embedded API key is present.
+3. Send a downsampled image payload to Gemini API with a short prompt.
+4. Receive candidate memo sentence.
+5. Persist the suggestion in `MemoEntity.geminiSuggestion` and set `geminiMemoStatus = SUGGESTED`.
+6. Display recommendation chip in detail screen; user accepts, edits, or dismisses.
+7. Persist final memo in `MemoEntity.body`.
 
 ## YouTube Data API Flow
 

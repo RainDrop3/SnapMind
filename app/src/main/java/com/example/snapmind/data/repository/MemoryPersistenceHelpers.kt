@@ -30,7 +30,7 @@ class MemoryAggregateBuilder @Inject constructor(
             ocr = ocrTextDao.getByMemoryId(entity.id),
             memo = memoDao.getByMemoryId(entity.id),
             tags = tagEntities,
-            topClassification = classificationDao.getTopByMemoryId(entity.id),
+            classifications = classificationDao.getTopCategories(entity.id),
             youtubeLink = youtubeLinkDao.getByMemoryId(entity.id),
         )
     }

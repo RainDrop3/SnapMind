@@ -82,7 +82,7 @@
 - `RemoteEnrichmentRepository.runRemote`는 `apiKey.isBlank()`면 `RemoteFeatureDisabled`를 반환(`:107`) — 즉 키가 공급되지 않으면 전부 비활성.
 
 **요청 / 개선안**
-1. **API 키 공급 경로 확정 (결정 필요)**: `BuildConfig`/`local.properties`(데모용) vs 설정 화면 입력(`AppPreferences`에 키 보관) 중 택1. 보안상 키는 앱-프라이빗 저장 권장.
+1. **API 키 공급 경로 확정 (결정됨, 2026-06-16)**: `local.properties` → `BuildConfig` 내장 방식 채택. `app/build.gradle.kts`가 git에 커밋되지 않는 `local.properties`에서 `GEMINI/VISION/YOUTUBE_API_KEY`를 읽어 `BuildConfig`에 주입하고, `AppPreferences`의 키 getter가 이 값을 반환한다. 설정 화면의 키 입력란은 제거됨(스위치만 유지). 템플릿: `local.properties.template`.
 2. **원격 보강 워커 신설**: 로컬 처리 완료 후 실행되는 `RemoteEnrichmentWorker`(가칭) 추가.
    - 게이팅: `AppPreferences.visionEnabled/geminiEnabled/youtubeEnabled` 플래그로 각 호출 on/off (`handover_to_team_b.md` Phase 6 안내가 이 연동을 전제로 작성됨).
    - Vision 라벨 → `VisionLabelEntity` 저장, 자동 태그 룰 엔진에 반영.
@@ -260,7 +260,7 @@
 ## 공통 결정 필요 항목 (사용자 확인 요청)
 
 1. **#2 다중 업로드** 편집 UX: 항목별 vs 일괄.
-2. **#3 API 키 공급 방식**: BuildConfig/local.properties vs 설정 화면 입력.
+2. ~~**#3 API 키 공급 방식**~~: 결정됨 — `local.properties` → `BuildConfig` 내장(설정 입력란 제거). (2026-06-16)
 3. **#8 휴지통 단일 탭** 동작: 미리보기 vs 무동작.
 4. **#9 다크모드** 아이콘 색 고정 여부.
 5. **#10 "수정 시각" 정의** 범위.

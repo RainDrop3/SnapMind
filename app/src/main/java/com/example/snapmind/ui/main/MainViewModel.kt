@@ -34,11 +34,11 @@ class MainViewModel @Inject constructor(
         val activeMemories = memories.filterNot { it.isDeleted }
             .sortedByDescending { it.createdAtMillis }
         val filteredForHome = activeMemories.filter { item ->
-            (category == null || item.category == category) &&
+            (category == null || category in item.categories) &&
                 (tag == null || item.tags.any { it.equalsTag(tag) })
         }
         val tagBrowseItems = activeMemories.filter { item ->
-            (browseCategory == null || item.category == browseCategory) &&
+            (browseCategory == null || browseCategory in item.categories) &&
                 (browseTag == null || item.tags.any { it.equalsTag(browseTag) })
         }
 
