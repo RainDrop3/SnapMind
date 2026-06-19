@@ -95,6 +95,7 @@
                 android:textSize="12sp" />
 
             <FrameLayout
+                android:id="@+id/memoInputFrame"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="16dp"
@@ -114,6 +115,15 @@
                         android:minLines="4"
                         android:textColor="@color/snap_text" />
                 </com.google.android.material.textfield.TextInputLayout>
+
+                <View
+                    android:id="@+id/memoLoadingOverlay"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@color/snap_loading_overlay"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:visibility="gone" />
 
                 <ProgressBar
                     android:id="@+id/memoLoadingIndicator"

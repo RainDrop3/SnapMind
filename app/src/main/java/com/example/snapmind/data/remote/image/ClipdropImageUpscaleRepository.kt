@@ -1,15 +1,18 @@
 package com.example.snapmind.data.remote.image
 
+import android.content.ContentValues
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
-import androidx.core.net.toUri
-import com.example.snapmind.core.image.ImageImporter
+import android.os.Environment
+import android.provider.MediaStore
 import com.example.snapmind.core.result.AppError
 import com.example.snapmind.core.result.AppResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
+import java.io.InputStream
 import java.net.SocketTimeoutException
 import java.util.Locale
 import java.util.UUID
@@ -70,22 +73,18 @@ class ClipdropImageUpscaleRepository @Inject constructor(
             val resultMime = body.contentType()?.let { "${it.type}/${it.subtype}".lowercase(Locale.US) }
                 ?.takeIf { it in RESULT_MIME_TYPES }
                 ?: DEFAULT_RESULT_MIME
-            val targetFile = createResultFile(resultMime)
-            val byteSize = body.byteStream().use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    input.copyTo(output)
-                }
-                targetFile.length()
+            val savedImage = body.byteStream().use { input ->
+                saveResultToGallery(input, resultMime)
             }
-            if (byteSize <= 0L) {
-                targetFile.delete()
+            if (savedImage.byteSize <= 0L) {
+                context.contentResolver.delete(savedImage.uri, null, null)
                 return@withContext AppResult.Error(AppError.Unknown("업그레이드 결과를 저장하지 못했어요."))
             }
             AppResult.Success(
                 EnhancedImageResult(
-                    imageUri = targetFile.toUri().toString(),
+                    imageUri = savedImage.uri.toString(),
                     mimeType = resultMime,
-                    byteSize = byteSize,
+                    byteSize = savedImage.byteSize,
                 ),
             )
         } catch (_: SocketTimeoutException) {
@@ -156,10 +155,35 @@ class ClipdropImageUpscaleRepository @Inject constructor(
         return File(path)
     }
 
-    private fun createResultFile(mimeType: String): File {
-        val dir = File(context.filesDir, ImageImporter.IMAGE_SUBDIR).apply { mkdirs() }
-        val suffix = UUID.randomUUID().toString().substring(0, 8)
-        return File(dir, "memory_upscaled_${System.currentTimeMillis()}_$suffix.${mimeType.fileExtension()}")
+    private fun saveResultToGallery(input: InputStream, mimeType: String): SavedGalleryImage {
+        val resolver = context.contentResolver
+        val fileName = "snapmind_upscaled_${System.currentTimeMillis()}_${
+            UUID.randomUUID().toString().substring(0, 8)
+        }.${mimeType.fileExtension()}"
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+            put(MediaStore.Images.Media.MIME_TYPE, mimeType)
+            put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/SnapMind")
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            ?: throw IOException("Cannot create gallery image")
+        return try {
+            var byteSize = 0L
+            resolver.openOutputStream(uri)?.use { output ->
+                byteSize = input.copyTo(output)
+            } ?: throw IOException("Cannot open gallery image")
+            resolver.update(
+                uri,
+                ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) },
+                null,
+                null,
+            )
+            SavedGalleryImage(uri = uri, byteSize = byteSize)
+        } catch (error: Exception) {
+            resolver.delete(uri, null, null)
+            throw error
+        }
     }
 
     private fun retrofit2.Response<*>.toAppError(): AppError {
@@ -176,6 +200,11 @@ class ClipdropImageUpscaleRepository @Inject constructor(
         val file: File,
         val mimeType: String,
         val isTemporary: Boolean,
+    )
+
+    private data class SavedGalleryImage(
+        val uri: Uri,
+        val byteSize: Long,
     )
 
     companion object {

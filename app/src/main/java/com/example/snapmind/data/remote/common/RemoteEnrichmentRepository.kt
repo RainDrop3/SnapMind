@@ -263,7 +263,9 @@ class RemoteEnrichmentRepository @Inject constructor(
 
     private companion object {
         const val DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
-        const val GEMINI_MEMO_PROMPT = "이 이미지를 저장한 이유를 한 문장(50자 이내 한국어)으로 추천해 주세요."
+        const val GEMINI_MEMO_PROMPT =
+            "이 이미지를 저장한 이유를 한 문장(50자 이내 한국어)으로 추천해 주세요. " +
+                "문장만 출력하고, 마크다운 굵게 표시, 따옴표, 글자 수, 괄호, 설명은 절대 붙이지 마세요."
         const val MAX_HTML_BYTES = 512_000L
         const val MAX_TITLE_LENGTH = 180
         const val MAX_DESCRIPTION_LENGTH = 300

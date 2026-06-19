@@ -120,6 +120,8 @@ class DetailActivity : AppCompatActivity() {
                         if (loading) "추천 받는 중…" else "Gemini 메모 추천받기"
                     // 추천 받는 동안에는 메모 수정 불가 + 칸에 로딩 인디케이터 표시 + 저장 비활성화.
                     binding.memoEditText.isEnabled = !loading
+                    binding.memoLoadingOverlay.visibility =
+                        if (loading) View.VISIBLE else View.GONE
                     binding.memoLoadingIndicator.visibility =
                         if (loading) View.VISIBLE else View.GONE
                     binding.saveMemoButton.isEnabled = !loading
@@ -224,7 +226,7 @@ class DetailActivity : AppCompatActivity() {
             .setTitle("이미지를 온라인으로 업로드합니다")
             .setMessage(
                 "화질 업그레이드를 위해 현재 이미지가 Clipdrop API 서버로 전송됩니다. " +
-                    "민감한 정보가 포함된 이미지는 진행하지 마세요. 동의하면 업로드 후 결과 이미지를 앱 내부에 저장합니다.",
+                    "민감한 정보가 포함된 이미지는 진행하지 마세요. 동의하면 업로드 후 결과 이미지를 갤러리에 저장합니다.",
             )
             .setNegativeButton("취소", null)
             .setPositiveButton("동의하고 진행") { _, _ -> viewModel.requestImageEnhancement() }

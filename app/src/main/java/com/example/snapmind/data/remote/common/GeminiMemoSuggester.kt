@@ -40,7 +40,7 @@ class GeminiMemoSuggester @Inject constructor(
 
         return when (val result = remoteRepository.suggestMemo(base64Jpeg, flags.geminiApiKey)) {
             is AppResult.Success -> {
-                val suggestion = result.data.text.trim()
+                val suggestion = sanitizeGeminiMemoSuggestion(result.data.text)
                 if (suggestion.isBlank()) {
                     memoryItemDao.setGeminiMemoStatus(memoryId, GeminiMemoStatus.SKIPPED, now())
                     AppResult.Error(AppError.Unknown("추천할 내용을 찾지 못했어요."))
@@ -56,3 +56,27 @@ class GeminiMemoSuggester @Inject constructor(
         }
     }
 }
+
+internal fun sanitizeGeminiMemoSuggestion(raw: String): String {
+    var cleaned = raw
+        .replace("\r", "\n")
+        .lines()
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .joinToString(separator = " ")
+        .trim()
+    cleaned = cleaned.replace(Regex("^[-*\\d.)\\s]+"), "")
+    cleaned = cleaned.replace(Regex("^(추천|메모|저장 이유)\\s*[:：]\\s*"), "")
+    cleaned = cleaned.replace(Regex("\\s*[\\(（]\\s*(?:약\\s*)?\\d+\\s*자\\s*[\\)）]\\s*$"), "")
+    cleaned = cleaned.trim().trimSurroundingQuotes()
+    cleaned = cleaned.replace(Regex("[*_`]+"), "").trim()
+    cleaned = cleaned.replace(Regex("\\s*[\\(（]\\s*(?:약\\s*)?\\d+\\s*자\\s*[\\)）]\\s*$"), "")
+    return cleaned.trim().trimSurroundingQuotes()
+}
+
+private fun String.trimSurroundingQuotes(): String =
+    trim()
+        .removeSurrounding("\"")
+        .removeSurrounding("'")
+        .removeSurrounding("“", "”")
+        .removeSurrounding("‘", "’")

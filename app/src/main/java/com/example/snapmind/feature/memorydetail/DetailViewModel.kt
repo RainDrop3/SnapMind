@@ -116,7 +116,7 @@ class DetailViewModel @Inject constructor(
             .filter { it.memoryId == memoryIdFlow.value }
             .onEach { event ->
                 val message = when (val result = event.result) {
-                    is AppResult.Success -> "화질 업그레이드가 완료됐어요."
+                    is AppResult.Success -> "화질 업그레이드가 완료되어 갤러리에 저장됐어요."
                     is AppResult.Error -> result.error.toImageEnhancementMessage()
                 }
                 _messages.tryEmit(message)
