@@ -126,10 +126,17 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
         val videoId = youtubeLinkHelper.videoId(url)
         if (videoId != null && youtubeEnabled && youtubeApiKey.isNotBlank()) {
             when (val result = remoteRepository.fetchYoutubeVideo(videoId, youtubeApiKey)) {
-                is AppResult.Success -> result.data
-                    ?.withImageFallback(url)
-                    ?.withOpenUrlFallback(url)
-                    ?.let { return PreviewResult(preview = it, accessFailed = false) }
+                is AppResult.Success -> {
+                    val preview = result.data
+                        ?.withImageFallback(url)
+                        ?.withOpenUrlFallback(url)
+                    if (preview != null) return PreviewResult(preview = preview, accessFailed = false)
+
+                    val correctedPreview = fetchCorrectedYoutubePreview(videoId, youtubeApiKey)
+                    if (correctedPreview != null) {
+                        return PreviewResult(preview = correctedPreview, accessFailed = false)
+                    }
+                }
                 is AppResult.Error -> Unit
             }
         }
@@ -139,6 +146,33 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
                 accessFailed = false,
             )
             is AppResult.Error -> PreviewResult(preview = null, accessFailed = true)
+        }
+    }
+
+    private suspend fun fetchCorrectedYoutubePreview(
+        videoId: String,
+        youtubeApiKey: String,
+    ): RemoteLinkPreview? {
+        val candidates = youtubeLinkHelper
+            .ocrConfusionCandidateVideoIds(
+                videoId = videoId,
+                maxCandidates = MAX_YOUTUBE_OCR_CORRECTION_CANDIDATES,
+            )
+            .chunked(YOUTUBE_OCR_CORRECTION_BATCH_SIZE)
+            .take(MAX_YOUTUBE_OCR_CORRECTION_REQUESTS)
+
+        val matches = mutableListOf<RemoteLinkPreview>()
+        candidates.forEach { candidateBatch ->
+            when (val result = remoteRepository.fetchYoutubeVideos(candidateBatch, youtubeApiKey)) {
+                is AppResult.Success -> {
+                    matches += result.data
+                    if (matches.size > 1) return null
+                }
+                is AppResult.Error -> return null
+            }
+        }
+        return matches.singleOrNull()?.let { preview ->
+            preview.withImageFallback(preview.url)
         }
     }
 
@@ -204,5 +238,12 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
                 .setInputData(workDataOf(LocalMemoryProcessingWorker.KEY_MEMORY_ID to memoryId))
                 .build(),
         )
+    }
+
+    private companion object {
+        const val MAX_YOUTUBE_OCR_CORRECTION_REQUESTS = 1
+        const val YOUTUBE_OCR_CORRECTION_BATCH_SIZE = 24
+        const val MAX_YOUTUBE_OCR_CORRECTION_CANDIDATES =
+            MAX_YOUTUBE_OCR_CORRECTION_REQUESTS * YOUTUBE_OCR_CORRECTION_BATCH_SIZE
     }
 }

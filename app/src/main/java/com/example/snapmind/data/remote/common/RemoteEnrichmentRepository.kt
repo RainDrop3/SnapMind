@@ -40,17 +40,33 @@ class RemoteEnrichmentRepository @Inject constructor(
         videoId: String,
         apiKey: String,
     ): AppResult<RemoteLinkPreview?> = runRemote(apiKey) {
-        val item = youtubeApiService.getVideos(id = videoId, apiKey = apiKey)
+        youtubeApiService.getVideos(id = videoId, apiKey = apiKey)
             .items
             .firstOrNull()
-            ?: return@runRemote null
-        val snippet = item.snippet
-        RemoteLinkPreview(
-            url = "https://www.youtube.com/watch?v=${item.id ?: videoId}",
-            title = snippet?.title,
-            description = snippet?.description,
-            imageUrl = snippet?.thumbnails?.bestUrl(),
-            siteName = snippet?.channelTitle ?: "YouTube",
+            ?.toLinkPreview(videoId)
+    }
+
+    suspend fun fetchYoutubeVideos(
+        videoIds: List<String>,
+        apiKey: String,
+    ): AppResult<List<RemoteLinkPreview>> = runRemote(apiKey) {
+        val ids = videoIds.distinct().take(MAX_YOUTUBE_VIDEO_IDS_PER_REQUEST)
+        if (ids.isEmpty()) return@runRemote emptyList()
+        youtubeApiService.getVideos(id = ids.joinToString(","), apiKey = apiKey)
+            .items
+            .mapNotNull { item -> item.toLinkPreview(item.id.orEmpty()) }
+    }
+
+    private fun com.example.snapmind.data.remote.dto.YoutubeVideoItemDto.toLinkPreview(
+        fallbackVideoId: String,
+    ): RemoteLinkPreview {
+        val videoSnippet = this.snippet
+        return RemoteLinkPreview(
+            url = "https://www.youtube.com/watch?v=${id ?: fallbackVideoId}",
+            title = videoSnippet?.title,
+            description = videoSnippet?.description,
+            imageUrl = videoSnippet?.thumbnails?.bestUrl(),
+            siteName = videoSnippet?.channelTitle ?: "YouTube",
         )
     }
 
@@ -270,6 +286,7 @@ class RemoteEnrichmentRepository @Inject constructor(
         const val MAX_TITLE_LENGTH = 180
         const val MAX_DESCRIPTION_LENGTH = 300
         const val MAX_URL_LENGTH = 2_048
+        const val MAX_YOUTUBE_VIDEO_IDS_PER_REQUEST = 50
         const val USER_AGENT = "SnapMind/1.0 link-preview"
         const val SAFE_BROWSING_CLIENT_ID = "snapmind"
         const val SAFE_BROWSING_CLIENT_VERSION = "1.0"
