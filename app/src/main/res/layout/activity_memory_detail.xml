@@ -120,7 +120,11 @@
                     android:id="@+id/memoLoadingOverlay"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:background="@color/snap_loading_overlay"
+                    android:layout_marginStart="1dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginEnd="1dp"
+                    android:layout_marginBottom="1dp"
+                    android:background="@drawable/bg_memo_loading_overlay"
                     android:clickable="true"
                     android:focusable="true"
                     android:visibility="gone" />
