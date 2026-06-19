@@ -51,6 +51,11 @@ class DetailViewModel @Inject constructor(
             id > 0L && id in inProgress
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val imageEnhancementLoading: StateFlow<Boolean> =
+        combine(memoryIdFlow, repository.imageEnhancementInProgress) { id, inProgress ->
+            id > 0L && id in inProgress
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** 추천 결과/오류를 1회성 토스트로 알리기 위한 메시지 채널. */
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
@@ -102,6 +107,17 @@ class DetailViewModel @Inject constructor(
                 val message = when (val result = event.result) {
                     is AppResult.Success -> "Gemini 추천을 받았어요."
                     is AppResult.Error -> result.error.toUserMessage()
+                }
+                _messages.tryEmit(message)
+            }
+            .launchIn(viewModelScope)
+
+        repository.imageEnhancementEvents
+            .filter { it.memoryId == memoryIdFlow.value }
+            .onEach { event ->
+                val message = when (val result = event.result) {
+                    is AppResult.Success -> "화질 업그레이드가 완료됐어요."
+                    is AppResult.Error -> result.error.toImageEnhancementMessage()
                 }
                 _messages.tryEmit(message)
             }
@@ -222,6 +238,13 @@ class DetailViewModel @Inject constructor(
         repository.requestGeminiSuggestion(id)
     }
 
+    fun requestImageEnhancement() {
+        val id = memoryIdFlow.value
+        val memory = uiState.value.memory ?: return
+        if (id <= 0L || imageEnhancementLoading.value || memory.imageUri.isNullOrBlank()) return
+        repository.requestImageEnhancement(id)
+    }
+
     private fun AppError.toUserMessage(): String = when (this) {
         AppError.RemoteFeatureDisabled -> "Gemini가 꺼져 있거나 키가 없어 추천할 수 없어요. 설정에서 Gemini를 켜 주세요."
         AppError.NetworkUnavailable -> "네트워크 연결을 확인해 주세요."
@@ -231,6 +254,19 @@ class DetailViewModel @Inject constructor(
         AppError.FileNotFound -> "이미지를 불러올 수 없어 추천에 실패했어요."
         is AppError.Unknown -> message.ifBlank { "추천에 실패했어요." }
         else -> "추천에 실패했어요."
+    }
+
+    private fun AppError.toImageEnhancementMessage(): String = when (this) {
+        AppError.RemoteFeatureDisabled -> "화질 업그레이드 API가 꺼져 있거나 Clipdrop 키가 없어요. 설정을 확인해 주세요."
+        AppError.NetworkUnavailable -> "네트워크 연결을 확인해 주세요."
+        AppError.ApiTimeout -> "업그레이드 응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요."
+        AppError.ApiUnauthorized -> "Clipdrop API 키가 올바르지 않아요."
+        AppError.ApiQuotaExceeded -> "Clipdrop API 사용 한도를 초과했어요."
+        AppError.FileNotFound -> "이미지를 불러올 수 없어 업그레이드에 실패했어요."
+        AppError.UnsupportedImageType -> "이 이미지 형식은 업그레이드를 지원하지 않아요. JPG, PNG, WebP 이미지를 사용해 주세요."
+        is AppError.Http -> "화질 업그레이드 API 오류가 발생했어요. (${code})"
+        is AppError.Unknown -> message.ifBlank { "화질 업그레이드에 실패했어요." }
+        else -> "화질 업그레이드에 실패했어요."
     }
 
     fun acceptGeminiSuggestion() {

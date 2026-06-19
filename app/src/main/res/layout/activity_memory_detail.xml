@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/snap_bg"
@@ -54,6 +55,16 @@
                     android:textSize="42sp"
                     android:textStyle="bold" />
             </FrameLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/imageEnhancementButton"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="12dp"
+                android:text="화질 업그레이드"
+                app:icon="@drawable/ic_spark" />
 
             <!-- 위쪽 행: 카테고리(최대 2개, 사용자 편집) -->
             <com.google.android.material.chip.ChipGroup
@@ -136,14 +147,111 @@
                 app:chipIcon="@drawable/ic_spark"
                 app:chipIconTint="@color/snap_primary" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/youtubeButton"
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/linkPreviewCard"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="wrap_content"
                 android:layout_marginHorizontal="16dp"
                 android:layout_marginTop="12dp"
-                android:text="영상 바로 이동"
-                app:icon="@drawable/ic_spark" />
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/snap_surface"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="1dp"
+                app:strokeColor="@color/snap_outline"
+                app:strokeWidth="1dp"
+                tools:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="104dp"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/linkPreviewImage"
+                        android:layout_width="104dp"
+                        android:layout_height="104dp"
+                        android:contentDescription="링크 대표 이미지"
+                        android:scaleType="centerCrop"
+                        android:visibility="gone"
+                        tools:src="@drawable/bg_thumbnail_code"
+                        tools:visibility="visible" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_vertical"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:id="@+id/linkPreviewSite"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:textColor="@color/snap_primary"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            tools:text="developer.android.com" />
+
+                        <TextView
+                            android:id="@+id/linkSafetyWarning"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:background="@drawable/bg_badge_error"
+                            android:paddingHorizontal="10dp"
+                            android:paddingVertical="6dp"
+                            android:textColor="@color/white"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:visibility="gone"
+                            tools:text="위험 가능성이 있는 링크"
+                            tools:visibility="visible" />
+
+                        <TextView
+                            android:id="@+id/linkPreviewTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:ellipsize="end"
+                            android:lineSpacingExtra="1dp"
+                            android:maxLines="2"
+                            android:textColor="@color/snap_text"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            tools:text="Android Developers" />
+
+                        <TextView
+                            android:id="@+id/linkPreviewDescription"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:ellipsize="end"
+                            android:lineSpacingExtra="1dp"
+                            android:maxLines="2"
+                            android:textColor="@color/snap_text_secondary"
+                            android:textSize="13sp"
+                            tools:text="Tools and APIs for building Android apps." />
+
+                        <TextView
+                            android:id="@+id/linkPreviewUrl"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:textColor="@color/snap_text_secondary"
+                            android:textSize="12sp"
+                            tools:text="https://developer.android.com" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <TextView
                 android:id="@+id/ocrHeader"
