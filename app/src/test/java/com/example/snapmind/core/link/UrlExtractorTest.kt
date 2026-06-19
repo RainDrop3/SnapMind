@@ -48,8 +48,23 @@ class UrlExtractorTest {
     }
 
     @Test
+    fun firstUrl_joinsOcrSpaceInsideNaverSearchPath() {
+        val url = "https://search.naver.com/search.naver?where=nexearch&sm=top_clk.splogo&query=%EB%8C%80%ED%95%9C%EB%AF%BC%EA%B5%AD%20%EB%A9%95%EC%8B%9C%EC%BD%94%20%EC%9B%94%EB%93%9C%EC%BB%B5"
+        val text = "네이버 검색 https://search.naver.com/search. naver?where=nexearch&sm=top_clk.splogo&query=%EB%8C%80%ED%95%9C%EB%AF%BC%EA%B5%AD%20%EB%A9%95%EC%8B%9C%EC%BD%94%20%EC%9B%94%EB%93%9C%EC%BB%B5"
+
+        assertEquals(url, extractor.firstUrl(text))
+    }
+
+    @Test
     fun firstUrl_doesNotSwallowNextSentenceAfterTerminalPeriod() {
         val text = "참고 링크 https://example.com.\nNext sentence"
+
+        assertEquals("https://example.com/", extractor.firstUrl(text))
+    }
+
+    @Test
+    fun firstUrl_doesNotSwallowNextSentenceAfterTerminalPeriodAndSpace() {
+        val text = "참고 링크 https://example.com. Next sentence"
 
         assertEquals("https://example.com/", extractor.firstUrl(text))
     }
