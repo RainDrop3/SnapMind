@@ -246,13 +246,15 @@ class DetailActivity : AppCompatActivity() {
                 },
             )
         }
-        addView(
-            Chip(this@DetailActivity).apply {
-                text = "+ 카테고리"
-                isCheckable = false
-                setOnClickListener { showCategoryPicker() }
-            },
-        )
+        if (categories.size < MemoryCategory.MAX_PER_MEMORY) {
+            addView(
+                Chip(this@DetailActivity).apply {
+                    text = "+ 카테고리"
+                    isCheckable = false
+                    setOnClickListener { showCategoryPicker() }
+                },
+            )
+        }
     }
 
     /** 아래쪽 행: staged 태그. 추가/제거는 "저장" 전까지 draft 에만 반영된다. */
@@ -279,7 +281,16 @@ class DetailActivity : AppCompatActivity() {
 
     /** 고정된 선택 가능 카테고리(code/Others 제외)를 단일 선택 다이얼로그로 띄워 staged 추가한다. */
     private fun showCategoryPicker() {
-        val options = MemoryCategory.selectable
+        if (currentCategories.size >= MemoryCategory.MAX_PER_MEMORY) {
+            Toast.makeText(
+                this,
+                "카테고리는 최대 ${MemoryCategory.MAX_PER_MEMORY}개까지 지정할 수 있어요.",
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        val options = MemoryCategory.selectable.filterNot { it in currentCategories }
+        if (options.isEmpty()) return
         val names = options.map { it.displayName }.toTypedArray()
         AlertDialog.Builder(this)
             .setTitle("카테고리 추가 (최대 ${MemoryCategory.MAX_PER_MEMORY}개)")
