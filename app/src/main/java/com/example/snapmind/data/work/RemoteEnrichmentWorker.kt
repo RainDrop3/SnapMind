@@ -28,6 +28,9 @@ import com.example.snapmind.data.repository.refreshFtsRow
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
+private const val LINK_ACCESS_FAILED_DESCRIPTION =
+    "페이지 접근을 확인하지 못했습니다. URL 자동 인식이 실패했을 수 있어요."
+
 @HiltWorker
 class RemoteEnrichmentWorker @AssistedInject constructor(
     @Assisted appContext: Context,
@@ -83,14 +86,19 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
         memoryItemDao.setLinkPreviewStatus(memoryId, OptionalRemoteProcessingStatus.RUNNING, now())
         val safety = checkSafety(url, flags.safeBrowsingEnabled, flags.safeBrowsingApiKey)
         val fallback = fallbackPreview(url)
-        val preview = if (safety.status == LinkSafetyStatus.UNSAFE) {
-            fallback.copy(
+        val enrichment = if (safety.status == LinkSafetyStatus.UNSAFE) {
+            null
+        } else {
+            enrichPreview(url, flags.youtubeEnabled, flags.youtubeApiKey)
+        }
+        val preview = when {
+            safety.status == LinkSafetyStatus.UNSAFE -> fallback.copy(
                 title = "위험 가능성이 있는 링크",
                 description = safety.threatTypes.joinToString(separator = ", "),
             )
-        } else {
-            enrichPreview(url, flags.youtubeEnabled, flags.youtubeApiKey) ?: fallback
-        }.withSafety(safety)
+            enrichment?.preview != null -> enrichment.preview
+            else -> fallback.copy(description = LINK_ACCESS_FAILED_DESCRIPTION)
+        }.withSafety(safety.withAccessFailure(enrichment?.accessFailed == true))
 
         linkPreviewDao.upsert(preview.toEntity(memoryId, now()))
         memoryItemDao.setLinkPreviewStatus(memoryId, OptionalRemoteProcessingStatus.SUCCESS, now())
@@ -114,17 +122,23 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
         url: String,
         youtubeEnabled: Boolean,
         youtubeApiKey: String,
-    ): RemoteLinkPreview? {
+    ): PreviewResult {
         val videoId = youtubeLinkHelper.videoId(url)
         if (videoId != null && youtubeEnabled && youtubeApiKey.isNotBlank()) {
-            return when (val result = remoteRepository.fetchYoutubeVideo(videoId, youtubeApiKey)) {
-                is AppResult.Success -> result.data?.withImageFallback(url)?.withOpenUrlFallback(url)
-                is AppResult.Error -> null
+            when (val result = remoteRepository.fetchYoutubeVideo(videoId, youtubeApiKey)) {
+                is AppResult.Success -> result.data
+                    ?.withImageFallback(url)
+                    ?.withOpenUrlFallback(url)
+                    ?.let { return PreviewResult(preview = it, accessFailed = false) }
+                is AppResult.Error -> Unit
             }
         }
         return when (val result = remoteRepository.fetchLinkPreview(url)) {
-            is AppResult.Success -> result.data.withImageFallback(url).withOpenUrlFallback(url)
-            is AppResult.Error -> null
+            is AppResult.Success -> PreviewResult(
+                preview = result.data.withImageFallback(url).withOpenUrlFallback(url),
+                accessFailed = false,
+            )
+            is AppResult.Error -> PreviewResult(preview = null, accessFailed = true)
         }
     }
 
@@ -143,6 +157,13 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
     private fun RemoteLinkPreview.withOpenUrlFallback(sourceUrl: String): RemoteLinkPreview =
         copy(url = youtubeLinkHelper.watchUrl(sourceUrl) ?: url)
 
+    private fun RemoteLinkSafety.withAccessFailure(accessFailed: Boolean): RemoteLinkSafety =
+        if (!accessFailed || status == LinkSafetyStatus.UNSAFE) {
+            this
+        } else {
+            copy(status = LinkSafetyStatus.ACCESS_FAILED)
+        }
+
     private fun RemoteLinkPreview.withSafety(safety: RemoteLinkSafety): RemoteLinkPreviewWithSafety =
         RemoteLinkPreviewWithSafety(
             preview = this,
@@ -160,13 +181,21 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
             siteName = preview.siteName,
             safetyStatus = safety.status,
             safetyThreatTypes = safety.threatTypes.joinToString(separator = ", ").ifBlank { null },
-            safetyCheckedAt = if (safety.status == LinkSafetyStatus.UNCHECKED) null else createdAt,
+            safetyCheckedAt = if (
+                safety.status == LinkSafetyStatus.UNCHECKED ||
+                safety.status == LinkSafetyStatus.ACCESS_FAILED
+            ) null else createdAt,
             createdAt = createdAt,
         )
 
     private data class RemoteLinkPreviewWithSafety(
         val preview: RemoteLinkPreview,
         val safety: RemoteLinkSafety,
+    )
+
+    private data class PreviewResult(
+        val preview: RemoteLinkPreview?,
+        val accessFailed: Boolean,
     )
 
     private fun enqueueAutoTagging(memoryId: Long) {

@@ -377,6 +377,7 @@ class DetailActivity : AppCompatActivity() {
         val warning = when (preview.safetyStatus) {
             LinkSafetyStatus.UNSAFE -> "위험 가능성이 있는 링크"
             LinkSafetyStatus.CHECK_FAILED -> "안전 확인 실패"
+            LinkSafetyStatus.ACCESS_FAILED -> "링크 접근 확인 실패"
             else -> null
         }
         linkSafetyWarning.visibility = if (warning == null) View.GONE else View.VISIBLE
@@ -385,9 +386,23 @@ class DetailActivity : AppCompatActivity() {
             preview.safetyThreatTypes.isNullOrBlank() -> warning
             else -> "$warning · ${preview.safetyThreatTypes}"
         }
+        if (warning != null) {
+            linkSafetyWarning.setBackgroundResource(
+                if (preview.safetyStatus == LinkSafetyStatus.UNSAFE) {
+                    R.drawable.bg_badge_error
+                } else {
+                    R.drawable.bg_badge_amber
+                },
+            )
+        }
         linkPreviewCard.strokeColor = ContextCompat.getColor(
             this@DetailActivity,
-            if (preview.safetyStatus == LinkSafetyStatus.UNSAFE) R.color.snap_rose else R.color.snap_outline,
+            when (preview.safetyStatus) {
+                LinkSafetyStatus.UNSAFE -> R.color.snap_rose
+                LinkSafetyStatus.ACCESS_FAILED,
+                LinkSafetyStatus.CHECK_FAILED -> R.color.snap_amber
+                else -> R.color.snap_outline
+            },
         )
     }
 
@@ -411,9 +426,17 @@ class DetailActivity : AppCompatActivity() {
         try {
             startActivity(intent)
         } catch (_: ActivityNotFoundException) {
-            Toast.makeText(this, "링크를 열 수 있는 앱이 없어요.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                "링크를 열 수 있는 앱이 없어요. OCR 텍스트에서 직접 복사해 이동해 주세요.",
+                Toast.LENGTH_LONG,
+            ).show()
         } catch (_: IllegalArgumentException) {
-            Toast.makeText(this, "링크 형식이 올바르지 않아요.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                "URL 자동 인식이 실패했을 수 있어요. OCR 텍스트에서 직접 복사해 이동해 주세요.",
+                Toast.LENGTH_LONG,
+            ).show()
         }
     }
 

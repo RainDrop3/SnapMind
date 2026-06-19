@@ -42,6 +42,7 @@ object LinkSafetyStatus {
     const val SAFE = "SAFE"
     const val UNSAFE = "UNSAFE"
     const val CHECK_FAILED = "CHECK_FAILED"
+    const val ACCESS_FAILED = "ACCESS_FAILED"
 }
 
 object ImageEnhancementState {
