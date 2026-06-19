@@ -51,17 +51,8 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
 
     private fun bindSwitches() {
         val flags = prefs.current()
-        binding.apiHealthText.text = buildString {
-            append("YouTube API ")
-            append(if (flags.youtubeApiKey.isBlank()) "키 없음" else "키 있음")
-            append(" · Safe Browsing ")
-            append(if (flags.safeBrowsingApiKey.isBlank()) "키 없음" else "키 있음")
-            append(" · Clipdrop ")
-            append(if (flags.clipdropApiKey.isBlank()) "키 없음" else "키 있음")
-            append(" · Gemini ")
-            append(if (flags.geminiApiKey.isBlank()) "키 없음" else "키 있음")
-            append("\nSafe Browsing 보호는 오탐과 미탐이 있을 수 있어요.")
-        }
+        binding.apiHealthText.text =
+            "아래 옵션에서 링크 카드, 악성 링크 경고, 화질 업그레이드, 메모 추천 기능을 필요에 따라 켜고 끌 수 있습니다."
         setSafe(binding.visionSwitch, flags.linkPreviewEnabled)
         setSafe(binding.youtubeSwitch, flags.youtubeEnabled)
         setSafe(binding.safeBrowsingSwitch, flags.safeBrowsingEnabled)
