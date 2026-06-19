@@ -1,27 +1,29 @@
 package com.example.snapmind.data.remote.dto
 
-data class YoutubeSearchResponseDto(
-    val items: List<YoutubeSearchItemDto> = emptyList(),
+data class YoutubeVideosResponseDto(
+    val items: List<YoutubeVideoItemDto> = emptyList(),
 )
 
-data class YoutubeSearchItemDto(
-    val id: YoutubeIdDto? = null,
-    val snippet: YoutubeSnippetDto? = null,
+data class YoutubeVideoItemDto(
+    val id: String? = null,
+    val snippet: YoutubeVideoSnippetDto? = null,
 )
 
-data class YoutubeIdDto(
-    val videoId: String? = null,
-)
-
-data class YoutubeSnippetDto(
+data class YoutubeVideoSnippetDto(
     val title: String? = null,
-    val thumbnails: YoutubeThumbnailsDto? = null,
+    val description: String? = null,
+    val channelTitle: String? = null,
+    val thumbnails: YoutubeVideoThumbnailsDto? = null,
 )
 
-data class YoutubeThumbnailsDto(
-    val default: YoutubeThumbnailDto? = null,
+data class YoutubeVideoThumbnailsDto(
+    val maxres: YoutubeVideoThumbnailDto? = null,
+    val standard: YoutubeVideoThumbnailDto? = null,
+    val high: YoutubeVideoThumbnailDto? = null,
+    val medium: YoutubeVideoThumbnailDto? = null,
+    val default: YoutubeVideoThumbnailDto? = null,
 )
 
-data class YoutubeThumbnailDto(
+data class YoutubeVideoThumbnailDto(
     val url: String? = null,
 )

@@ -10,7 +10,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * 원격 API(Vision·Gemini)로 보낼 이미지를 다운샘플링한 JPEG Base64 문자열로 인코딩한다.
+ * Gemini로 보낼 이미지를 다운샘플링한 JPEG Base64 문자열로 인코딩한다.
  * 자동 파이프라인 워커와 상세 화면 온디맨드 추천이 같은 인코딩을 공유한다.
  */
 @Singleton

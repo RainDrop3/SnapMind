@@ -8,6 +8,8 @@ sdk.dir=
 
 # 개발자 발급 원격 API 키 — 빌드 시 BuildConfig 에 내장됩니다.
 # 비워 두면 해당 기능은 앱에서 자동으로 SKIPPED 처리됩니다.
+# OCR URL 링크 카드는 Safe Browsing/YouTube API 후 필요할 때 페이지 메타 태그를 읽습니다.
 GEMINI_API_KEY=
-VISION_API_KEY=
 YOUTUBE_API_KEY=
+SAFE_BROWSING_API_KEY=
+CLIPDROP_API_KEY=

@@ -10,6 +10,7 @@ import com.example.snapmind.data.local.entity.MemoryItemEntity
 import com.example.snapmind.data.local.entity.StandardProcessingStatus
 import com.example.snapmind.data.local.entity.OptionalRemoteProcessingStatus
 import com.example.snapmind.data.local.entity.GeminiMemoStatus
+import com.example.snapmind.data.local.entity.ImageEnhancementStatus
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -70,7 +71,38 @@ interface MemoryItemDao {
     suspend fun setGeminiMemoStatus(memoryId: Long, status: GeminiMemoStatus, updatedAt: Long): Int
 
     @Query("UPDATE memory_items SET youtubeLinkStatus = :status, updatedAt = :updatedAt WHERE id = :memoryId")
-    suspend fun setYoutubeLinkStatus(memoryId: Long, status: OptionalRemoteProcessingStatus, updatedAt: Long): Int
+    suspend fun setLinkPreviewStatus(memoryId: Long, status: OptionalRemoteProcessingStatus, updatedAt: Long): Int
+
+    @Query("UPDATE memory_items SET imageEnhancementStatus = :status, updatedAt = :updatedAt WHERE id = :memoryId")
+    suspend fun setImageEnhancementStatus(
+        memoryId: Long,
+        status: ImageEnhancementStatus,
+        updatedAt: Long,
+    ): Int
+
+    @Query(
+        """
+        UPDATE memory_items
+        SET imageUri = :imageUri,
+            originalImageUri = :originalImageUri,
+            mimeType = :mimeType,
+            imageEnhancementStatus = :status,
+            imageEnhancementProvider = :provider,
+            imageEnhancedAt = :enhancedAt,
+            updatedAt = :updatedAt
+        WHERE id = :memoryId
+        """,
+    )
+    suspend fun applyEnhancedImage(
+        memoryId: Long,
+        imageUri: String,
+        mimeType: String,
+        originalImageUri: String,
+        status: ImageEnhancementStatus,
+        provider: String,
+        enhancedAt: Long,
+        updatedAt: Long,
+    ): Int
 
     @Query("UPDATE memory_items SET taggingStatus = :status, updatedAt = :updatedAt WHERE id = :memoryId")
     suspend fun setTaggingStatus(memoryId: Long, status: StandardProcessingStatus, updatedAt: Long): Int

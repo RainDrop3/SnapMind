@@ -16,7 +16,7 @@ import com.example.snapmind.data.local.dao.MemorySearchDao
 import com.example.snapmind.data.local.dao.MemoryTagDao
 import com.example.snapmind.data.local.dao.OcrTextDao
 import com.example.snapmind.data.local.dao.TagDao
-import com.example.snapmind.data.local.dao.YoutubeLinkDao
+import com.example.snapmind.data.local.dao.LinkPreviewDao
 import com.example.snapmind.data.local.dao.ClassificationDao
 import com.example.snapmind.data.local.entity.MemoEntity
 import com.example.snapmind.data.local.entity.MemoryItemEntity
@@ -31,6 +31,7 @@ import com.example.snapmind.data.local.entity.StandardProcessingStatus
 import com.example.snapmind.data.model.MemoryItem
 import com.example.snapmind.data.model.TagCount
 import com.example.snapmind.data.remote.common.GeminiMemoSuggester
+import com.example.snapmind.data.remote.image.ImageQualityEnhancer
 import com.example.snapmind.data.work.LocalMemoryProcessingWorker
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.ConcurrentHashMap
@@ -64,12 +65,13 @@ class RoomMemoryRepository @Inject constructor(
     private val tagDao: TagDao,
     private val memoryTagDao: MemoryTagDao,
     private val classificationDao: ClassificationDao,
-    private val youtubeLinkDao: YoutubeLinkDao,
+    private val linkPreviewDao: LinkPreviewDao,
     private val memorySearchDao: MemorySearchDao,
     private val imageImporter: ImageImporter,
     private val tagAssigner: TagAssigner,
     private val pdfExporter: PdfExporter,
     private val geminiSuggester: GeminiMemoSuggester,
+    private val imageQualityEnhancer: ImageQualityEnhancer,
     private val dispatcherProvider: DispatcherProvider,
 ) : MemoryRepository {
 
@@ -87,8 +89,19 @@ class RoomMemoryRepository @Inject constructor(
     private val _geminiEvents = MutableSharedFlow<GeminiSuggestionEvent>(extraBufferCapacity = 4)
     override val geminiEvents: SharedFlow<GeminiSuggestionEvent> = _geminiEvents.asSharedFlow()
 
+    private val _imageEnhancementInProgress = MutableStateFlow<Set<Long>>(emptySet())
+    override val imageEnhancementInProgress: StateFlow<Set<Long>> =
+        _imageEnhancementInProgress.asStateFlow()
+
+    private val _imageEnhancementEvents = MutableSharedFlow<ImageEnhancementEvent>(extraBufferCapacity = 4)
+    override val imageEnhancementEvents: SharedFlow<ImageEnhancementEvent> =
+        _imageEnhancementEvents.asSharedFlow()
+
     /** 진행 중인 추천 작업(메모리 id별). 명시적 메모 저장 시 취소에 사용. */
     private val geminiJobs = ConcurrentHashMap<Long, Job>()
+
+    /** 진행 중인 화질 업그레이드 작업(메모리 id별). */
+    private val imageEnhancementJobs = ConcurrentHashMap<Long, Job>()
 
     /** 현재 상세 화면에 떠 있는 메모리 id. 추천 완료 시 칩 vs 자동 적용을 가른다. */
     @Volatile private var viewingMemoryId: Long? = null
@@ -144,7 +157,7 @@ class RoomMemoryRepository @Inject constructor(
                 memory.ocrText.contains(q, ignoreCase = true) ||
                 memory.categories.any { it.displayName.contains(q, ignoreCase = true) } ||
                 memory.tags.any { it.contains(q, ignoreCase = true) } ||
-                memory.youtubeTitle?.contains(q, ignoreCase = true) == true
+                memory.linkPreview?.matches(q) == true
             val matchesTag = normalizedTag == null ||
                 memory.tags.any { TagAssigner.normalize(it) == normalizedTag }
             val matchesCategory = category == null || category in memory.categories
@@ -488,6 +501,21 @@ class RoomMemoryRepository @Inject constructor(
         job.start()
     }
 
+    override fun requestImageEnhancement(memoryId: Long) {
+        if (memoryId <= 0L || imageEnhancementJobs.containsKey(memoryId)) return
+        _imageEnhancementInProgress.update { it + memoryId }
+        val job = scope.launch(start = CoroutineStart.LAZY) {
+            val result = imageQualityEnhancer.enhance(memoryId)
+            _imageEnhancementEvents.tryEmit(ImageEnhancementEvent(memoryId, result))
+        }
+        imageEnhancementJobs[memoryId] = job
+        job.invokeOnCompletion {
+            imageEnhancementJobs.remove(memoryId, job)
+            _imageEnhancementInProgress.update { it - memoryId }
+        }
+        job.start()
+    }
+
     /** 진행 중인 추천 작업을 취소하고 RUNNING 상태가 남지 않도록 종료 상태로 마킹한다. */
     private fun cancelGeminiJob(memoryId: Long) {
         val job = geminiJobs.remove(memoryId) ?: return
@@ -583,7 +611,7 @@ class RoomMemoryRepository @Inject constructor(
             memo = memoDao.getByMemoryId(entity.id),
             tags = tagEntities,
             classifications = classificationDao.getTopCategories(entity.id),
-            youtubeLink = youtubeLinkDao.getByMemoryId(entity.id),
+            linkPreview = linkPreviewDao.getByMemoryId(entity.id),
         )
     }
 
@@ -621,3 +649,9 @@ class RoomMemoryRepository @Inject constructor(
         private val MEMORIES_STATE = SharingStarted.WhileSubscribed(5_000)
     }
 }
+
+private fun com.example.snapmind.data.model.LinkPreview.matches(query: String): Boolean =
+    title?.contains(query, ignoreCase = true) == true ||
+        description?.contains(query, ignoreCase = true) == true ||
+        siteName?.contains(query, ignoreCase = true) == true ||
+        url.contains(query, ignoreCase = true)

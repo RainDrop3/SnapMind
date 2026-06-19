@@ -2,7 +2,8 @@ package com.example.snapmind.di
 
 import com.example.snapmind.BuildConfig
 import com.example.snapmind.data.remote.gemini.GeminiApiService
-import com.example.snapmind.data.remote.vision.VisionApiService
+import com.example.snapmind.data.remote.image.ClipdropImageUpscaleApiService
+import com.example.snapmind.data.remote.safebrowsing.SafeBrowsingApiService
 import com.example.snapmind.data.remote.youtube.YoutubeApiService
 import dagger.Module
 import dagger.Provides
@@ -18,15 +19,19 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
-annotation class VisionRetrofit
-
-@Qualifier
-@Retention(AnnotationRetention.BINARY)
 annotation class GeminiRetrofit
 
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class YoutubeRetrofit
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class SafeBrowsingRetrofit
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ClipdropRetrofit
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -41,6 +46,7 @@ object NetworkModule {
                 HttpLoggingInterceptor.Level.NONE
             }
             redactHeader("x-goog-api-key")
+            redactHeader("x-api-key")
         }
         return OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
@@ -49,12 +55,6 @@ object NetworkModule {
             .addInterceptor(loggingInterceptor)
             .build()
     }
-
-    @Provides
-    @Singleton
-    @VisionRetrofit
-    fun provideVisionRetrofit(client: OkHttpClient): Retrofit =
-        retrofit("https://vision.googleapis.com/", client)
 
     @Provides
     @Singleton
@@ -70,9 +70,15 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideVisionApiService(
-        @VisionRetrofit retrofit: Retrofit,
-    ): VisionApiService = retrofit.create(VisionApiService::class.java)
+    @SafeBrowsingRetrofit
+    fun provideSafeBrowsingRetrofit(client: OkHttpClient): Retrofit =
+        retrofit("https://safebrowsing.googleapis.com/", client)
+
+    @Provides
+    @Singleton
+    @ClipdropRetrofit
+    fun provideClipdropRetrofit(client: OkHttpClient): Retrofit =
+        retrofit("https://clipdrop-api.co/", client)
 
     @Provides
     @Singleton
@@ -85,6 +91,18 @@ object NetworkModule {
     fun provideYoutubeApiService(
         @YoutubeRetrofit retrofit: Retrofit,
     ): YoutubeApiService = retrofit.create(YoutubeApiService::class.java)
+
+    @Provides
+    @Singleton
+    fun provideSafeBrowsingApiService(
+        @SafeBrowsingRetrofit retrofit: Retrofit,
+    ): SafeBrowsingApiService = retrofit.create(SafeBrowsingApiService::class.java)
+
+    @Provides
+    @Singleton
+    fun provideClipdropImageUpscaleApiService(
+        @ClipdropRetrofit retrofit: Retrofit,
+    ): ClipdropImageUpscaleApiService = retrofit.create(ClipdropImageUpscaleApiService::class.java)
 
     private fun retrofit(baseUrl: String, client: OkHttpClient): Retrofit =
         Retrofit.Builder()

@@ -2,6 +2,7 @@ package com.example.snapmind.data.local.converter
 
 import androidx.room.TypeConverter
 import com.example.snapmind.data.local.entity.GeminiMemoStatus
+import com.example.snapmind.data.local.entity.ImageEnhancementStatus
 import com.example.snapmind.data.local.entity.OptionalRemoteProcessingStatus
 import com.example.snapmind.data.local.entity.StandardProcessingStatus
 import com.example.snapmind.data.local.entity.TagAssignedBy
@@ -27,6 +28,13 @@ class StatusConverters {
 
     @TypeConverter
     fun toGeminiMemoStatus(value: String): GeminiMemoStatus = GeminiMemoStatus.valueOf(value)
+
+    @TypeConverter
+    fun fromImageEnhancementStatus(value: ImageEnhancementStatus): String = value.name
+
+    @TypeConverter
+    fun toImageEnhancementStatus(value: String): ImageEnhancementStatus =
+        ImageEnhancementStatus.valueOf(value)
 
     @TypeConverter
     fun fromTagAssignedBy(value: TagAssignedBy): String = value.name

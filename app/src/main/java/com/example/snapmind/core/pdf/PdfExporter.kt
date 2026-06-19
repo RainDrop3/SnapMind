@@ -111,9 +111,11 @@ class PdfExporter @Inject constructor(
         if (memory.ocrText.isNotBlank()) {
             cursorY = drawWrappedText(canvas, "🔍 OCR", memory.ocrText.take(800), bodyPaint, cursorY)
         }
-        if (memory.youtubeUrl != null) {
+        memory.linkPreview?.let { preview ->
             cursorY += 8f
-            canvas.drawText("▶ ${memory.youtubeTitle ?: memory.youtubeUrl}", MARGIN, cursorY, mutedPaint)
+            canvas.drawText("Link: ${preview.title ?: preview.url}", MARGIN, cursorY, mutedPaint)
+            cursorY += 14f
+            canvas.drawText(preview.url, MARGIN, cursorY, mutedPaint)
         }
 
         pdf.finishPage(page)

@@ -7,6 +7,7 @@ import com.example.snapmind.core.coroutine.DispatcherProvider
 import com.example.snapmind.core.result.AppError
 import com.example.snapmind.core.result.AppResult
 import com.example.snapmind.data.model.CategoryCount
+import com.example.snapmind.data.model.LinkPreview
 import com.example.snapmind.data.model.MemoryCategory
 import com.example.snapmind.data.model.MemoryItem
 import com.example.snapmind.data.model.ProcessingStatus
@@ -35,6 +36,10 @@ class InMemoryMemoryRepository @Inject constructor(
     override val geminiInProgress: StateFlow<Set<Long>> = MutableStateFlow(emptySet<Long>()).asStateFlow()
     override val geminiEvents: SharedFlow<GeminiSuggestionEvent> =
         MutableSharedFlow<GeminiSuggestionEvent>().asSharedFlow()
+    override val imageEnhancementInProgress: StateFlow<Set<Long>> =
+        MutableStateFlow(emptySet<Long>()).asStateFlow()
+    override val imageEnhancementEvents: SharedFlow<ImageEnhancementEvent> =
+        MutableSharedFlow<ImageEnhancementEvent>().asSharedFlow()
 
     override fun getMemory(memoryId: Long): MemoryItem? =
         _memories.value.firstOrNull { it.id == memoryId }
@@ -81,7 +86,7 @@ class InMemoryMemoryRepository @Inject constructor(
                 memory.ocrText.contains(normalizedQuery, ignoreCase = true) ||
                 memory.category.displayName.contains(normalizedQuery, ignoreCase = true) ||
                 memory.tags.any { it.contains(normalizedQuery, ignoreCase = true) } ||
-                memory.youtubeTitle?.contains(normalizedQuery, ignoreCase = true) == true
+                memory.linkPreview?.matches(normalizedQuery) == true
             val matchesTag = normalizedTag == null || memory.tags.any { it.normalizeTag() == normalizedTag }
             val matchesCategory = category == null || category in memory.categories
             matchesQuery && matchesTag && matchesCategory
@@ -185,6 +190,8 @@ class InMemoryMemoryRepository @Inject constructor(
     }
 
     override fun requestGeminiSuggestion(memoryId: Long) = Unit
+
+    override fun requestImageEnhancement(memoryId: Long) = Unit
 
     override fun setViewingMemory(memoryId: Long?) = Unit
 
@@ -307,8 +314,11 @@ class InMemoryMemoryRepository @Inject constructor(
         //         tags = listOf("#Study", "#Android"),
         //         createdAtMillis = now - 3 * DAY,
         //         processingStatus = ProcessingStatus.DONE,
-        //         youtubeTitle = "Jetpack Compose animation tutorial",
-        //         youtubeUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        //         linkPreview = LinkPreview(
+        //             url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        //             title = "Jetpack Compose animation tutorial",
+        //             siteName = "youtube.com",
+        //         ),
         //     ),
         // )
         return emptyList()
@@ -319,3 +329,9 @@ class InMemoryMemoryRepository @Inject constructor(
         const val DAY = 24 * HOUR
     }
 }
+
+private fun LinkPreview.matches(query: String): Boolean =
+    title?.contains(query, ignoreCase = true) == true ||
+        description?.contains(query, ignoreCase = true) == true ||
+        siteName?.contains(query, ignoreCase = true) == true ||
+        url.contains(query, ignoreCase = true)

@@ -13,12 +13,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
 data class RemoteFeatureFlags(
-    val visionEnabled: Boolean,
-    val geminiEnabled: Boolean,
+    val linkPreviewEnabled: Boolean,
     val youtubeEnabled: Boolean,
-    val visionApiKey: String,
+    val safeBrowsingEnabled: Boolean,
+    val imageEnhancementEnabled: Boolean,
+    val geminiEnabled: Boolean,
     val geminiApiKey: String,
     val youtubeApiKey: String,
+    val safeBrowsingApiKey: String,
+    val clipdropApiKey: String,
 )
 
 @Singleton
@@ -28,33 +31,43 @@ class AppPreferences @Inject constructor(
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    var visionEnabled: Boolean
-        get() = prefs.getBoolean(KEY_VISION, true)
-        set(value) { prefs.edit().putBoolean(KEY_VISION, value).apply() }
-
-    var geminiEnabled: Boolean
-        get() = prefs.getBoolean(KEY_GEMINI, true)
-        set(value) { prefs.edit().putBoolean(KEY_GEMINI, value).apply() }
+    var linkPreviewEnabled: Boolean
+        get() = prefs.getBoolean(KEY_LINK_PREVIEW, prefs.getBoolean(KEY_VISION_LEGACY, true))
+        set(value) { prefs.edit().putBoolean(KEY_LINK_PREVIEW, value).apply() }
 
     var youtubeEnabled: Boolean
         get() = prefs.getBoolean(KEY_YOUTUBE, true)
         set(value) { prefs.edit().putBoolean(KEY_YOUTUBE, value).apply() }
 
+    var safeBrowsingEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SAFE_BROWSING, true)
+        set(value) { prefs.edit().putBoolean(KEY_SAFE_BROWSING, value).apply() }
+
+    var imageEnhancementEnabled: Boolean
+        get() = prefs.getBoolean(KEY_IMAGE_ENHANCEMENT, true)
+        set(value) { prefs.edit().putBoolean(KEY_IMAGE_ENHANCEMENT, value).apply() }
+
+    var geminiEnabled: Boolean
+        get() = prefs.getBoolean(KEY_GEMINI, true)
+        set(value) { prefs.edit().putBoolean(KEY_GEMINI, value).apply() }
+
     // API 키는 사용자 입력이 아니라 빌드 시 BuildConfig 에 내장된 개발자 키를 사용한다.
     // (값 공급: local.properties → app/build.gradle.kts → BuildConfig)
-    val visionApiKey: String get() = BuildConfig.VISION_API_KEY.trim()
-
     val geminiApiKey: String get() = BuildConfig.GEMINI_API_KEY.trim()
-
     val youtubeApiKey: String get() = BuildConfig.YOUTUBE_API_KEY.trim()
+    val safeBrowsingApiKey: String get() = BuildConfig.SAFE_BROWSING_API_KEY.trim()
+    val clipdropApiKey: String get() = BuildConfig.CLIPDROP_API_KEY.trim()
 
     fun current(): RemoteFeatureFlags = RemoteFeatureFlags(
-        visionEnabled = visionEnabled,
-        geminiEnabled = geminiEnabled,
+        linkPreviewEnabled = linkPreviewEnabled,
         youtubeEnabled = youtubeEnabled,
-        visionApiKey = visionApiKey,
+        safeBrowsingEnabled = safeBrowsingEnabled,
+        imageEnhancementEnabled = imageEnhancementEnabled,
+        geminiEnabled = geminiEnabled,
         geminiApiKey = geminiApiKey,
         youtubeApiKey = youtubeApiKey,
+        safeBrowsingApiKey = safeBrowsingApiKey,
+        clipdropApiKey = clipdropApiKey,
     )
 
     fun observe(): Flow<RemoteFeatureFlags> = callbackFlow {
@@ -81,8 +94,11 @@ class AppPreferences @Inject constructor(
 
     companion object {
         private const val PREFS_NAME = "snapmind_prefs"
-        private const val KEY_VISION = "vision_enabled"
-        private const val KEY_GEMINI = "gemini_enabled"
+        private const val KEY_LINK_PREVIEW = "link_preview_enabled"
+        private const val KEY_VISION_LEGACY = "vision_enabled"
         private const val KEY_YOUTUBE = "youtube_enabled"
+        private const val KEY_SAFE_BROWSING = "safe_browsing_enabled"
+        private const val KEY_IMAGE_ENHANCEMENT = "image_enhancement_enabled"
+        private const val KEY_GEMINI = "gemini_enabled"
     }
 }
