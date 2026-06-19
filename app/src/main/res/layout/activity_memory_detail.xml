@@ -253,26 +253,36 @@
                             android:textSize="13sp"
                             tools:text="Tools and APIs for building Android apps." />
 
-                        <TextView
-                            android:id="@+id/linkPreviewUrl"
+                        <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:textIsSelectable="true"
-                            android:textColor="@color/snap_text_secondary"
-                            android:textSize="12sp"
-                            tools:text="https://developer.android.com" />
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
 
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:lineSpacingExtra="2dp"
-                            android:text="URL 자동 인식은 OCR 결과에 따라 실패할 수 있어요. 정상적으로 열리지 않으면 OCR 텍스트에서 링크를 직접 복사해 붙여넣어 이동해 주세요."
-                            android:textColor="@color/snap_text_secondary"
-                            android:textSize="11sp" />
+                            <TextView
+                                android:id="@+id/linkPreviewUrl"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:ellipsize="end"
+                                android:maxLines="1"
+                                android:textIsSelectable="true"
+                                android:textColor="@color/snap_text_secondary"
+                                android:textSize="12sp"
+                                tools:text="https://developer.android.com" />
+
+                            <ImageButton
+                                android:id="@+id/linkPreviewNoticeButton"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_marginStart="6dp"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:contentDescription="URL 자동 인식 주의사항"
+                                android:padding="7dp"
+                                android:src="@drawable/ic_info_outline"
+                                app:tint="@color/snap_amber" />
+                        </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

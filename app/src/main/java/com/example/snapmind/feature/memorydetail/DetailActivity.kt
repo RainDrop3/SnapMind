@@ -79,6 +79,7 @@ class DetailActivity : AppCompatActivity() {
         }
         binding.geminiSuggestButton.setOnClickListener { viewModel.requestGeminiSuggestion() }
         binding.imageEnhancementButton.setOnClickListener { showImageEnhancementConsent() }
+        binding.linkPreviewNoticeButton.setOnClickListener { showLinkRecognitionNotice() }
         binding.geminiSuggestionChip.setOnClickListener { viewModel.acceptGeminiSuggestion() }
         binding.geminiSuggestionChip.setOnCloseIconClickListener { viewModel.dismissGeminiSuggestion() }
         binding.memoEditText.doOnTextChanged { text, _, _, _ ->
@@ -230,6 +231,14 @@ class DetailActivity : AppCompatActivity() {
             )
             .setNegativeButton("취소", null)
             .setPositiveButton("동의하고 진행") { _, _ -> viewModel.requestImageEnhancement() }
+            .show()
+    }
+
+    private fun showLinkRecognitionNotice() {
+        AlertDialog.Builder(this)
+            .setTitle("URL 자동 인식 주의사항")
+            .setMessage(LINK_RECOGNITION_NOTICE)
+            .setPositiveButton("확인", null)
             .show()
     }
 
@@ -458,6 +467,8 @@ class DetailActivity : AppCompatActivity() {
 
     companion object {
         private const val EXTRA_MEMORY_ID = "extra_memory_id"
+        private const val LINK_RECOGNITION_NOTICE =
+            "URL 자동 인식은 OCR 결과에 따라 실패할 수 있어요. 정상적으로 열리지 않으면 OCR 텍스트에서 링크를 직접 복사해 붙여넣어 이동해 주세요."
         private val updatedAtFormat = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.KOREA)
 
         fun createIntent(context: Context, memoryId: Long): Intent =
