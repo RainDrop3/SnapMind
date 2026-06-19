@@ -8,7 +8,9 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 class UrlExtractor @Inject constructor() {
 
     fun firstUrl(text: String): String? =
-        urlRegex.findAll(text)
+        sequenceOf(text.collapseUrlLineBreaks(), text)
+            .distinct()
+            .flatMap { searchableText -> urlRegex.findAll(searchableText) }
             .mapNotNull { match -> match.value.cleanCandidate().normalizeUrl() }
             .firstOrNull()
 
@@ -37,9 +39,28 @@ class UrlExtractor @Inject constructor() {
         return if (parsed.host.contains('.')) parsed.toString() else null
     }
 
+    private fun String.collapseUrlLineBreaks(): String {
+        var current = this
+        while (true) {
+            val collapsed = current
+                .replace(URL_STRUCTURAL_LINE_BREAK, "")
+                .replace(YOUTUBE_VIDEO_ID_LINE_BREAK) { match ->
+                    match.groupValues[1] + match.groupValues[2]
+                }
+            if (collapsed == current) return current
+            current = collapsed
+        }
+    }
+
     private companion object {
         val urlRegex = Regex(
             pattern = """(?i)\b((?:https?://|www\.)[^\s<>"']+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}(?:/[^\s<>"']*)?)""",
+        )
+        val URL_STRUCTURAL_LINE_BREAK = Regex(
+            pattern = """(?<=[/:?#&=%+_~-])\s*\R\s*(?=[A-Za-z0-9/:?#&=%+_~.\-])|(?<=[A-Za-z0-9])\s*\R\s*(?=[/:?#&=%+_~.\-])""",
+        )
+        val YOUTUBE_VIDEO_ID_LINE_BREAK = Regex(
+            pattern = """(?i)(((?:https?://)?(?:www\.|m\.)?(?:youtu\.be/|youtube\.com/(?:shorts/|embed/|live/)|youtube\.com/watch\?[^\s<>"']*?v=)[A-Za-z0-9_-]{1,10}))\s*\R\s*([A-Za-z0-9_-]{1,10})""",
         )
         val TRAILING_PUNCTUATION = charArrayOf(
             '.', ',', ';', ':', '!', '?', ')', ']', '}', '>', '"', '\'',

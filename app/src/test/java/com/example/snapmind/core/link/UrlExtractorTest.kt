@@ -32,4 +32,25 @@ class UrlExtractorTest {
 
         assertEquals("https://youtu.be/abcDEF_1234", extractor.firstUrl(text))
     }
+
+    @Test
+    fun firstUrl_joinsLineBreakAfterUrlSeparator() {
+        val text = "다시 보기 https://youtu.be/\nabcDEF_1234"
+
+        assertEquals("https://youtu.be/abcDEF_1234", extractor.firstUrl(text))
+    }
+
+    @Test
+    fun firstUrl_joinsYoutubeVideoIdSplitAcrossLines() {
+        val text = "영상 링크 https://www.youtube.com/watch?v=abcDEF_\n1234"
+
+        assertEquals("https://www.youtube.com/watch?v=abcDEF_1234", extractor.firstUrl(text))
+    }
+
+    @Test
+    fun firstUrl_doesNotSwallowNextSentenceAfterTerminalPeriod() {
+        val text = "참고 링크 https://example.com.\nNext sentence"
+
+        assertEquals("https://example.com/", extractor.firstUrl(text))
+    }
 }
