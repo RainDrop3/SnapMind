@@ -56,6 +56,26 @@ class UrlExtractorTest {
     }
 
     @Test
+    fun firstUrl_joinsLineBreakAfterQuestionMarkBeforeKoreanQuery() {
+        val text = "네이버 검색 https://search.naver.com/search.naver?\n대한민국멕시코월드컵"
+
+        assertEquals(
+            "https://search.naver.com/search.naver?%EB%8C%80%ED%95%9C%EB%AF%BC%EA%B5%AD%EB%A9%95%EC%8B%9C%EC%BD%94%EC%9B%94%EB%93%9C%EC%BB%B5",
+            extractor.firstUrl(text),
+        )
+    }
+
+    @Test
+    fun firstUrl_joinsLineBreakAfterQueryEqualsBeforeKoreanQuery() {
+        val text = "네이버 검색 https://search.naver.com/search.naver?query=\n대한민국멕시코월드컵"
+
+        assertEquals(
+            "https://search.naver.com/search.naver?query=%EB%8C%80%ED%95%9C%EB%AF%BC%EA%B5%AD%EB%A9%95%EC%8B%9C%EC%BD%94%EC%9B%94%EB%93%9C%EC%BB%B5",
+            extractor.firstUrl(text),
+        )
+    }
+
+    @Test
     fun firstUrl_doesNotSwallowNextSentenceAfterTerminalPeriod() {
         val text = "참고 링크 https://example.com.\nNext sentence"
 

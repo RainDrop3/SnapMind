@@ -58,7 +58,7 @@ class UrlExtractor @Inject constructor() {
             pattern = """(?i)\b((?:https?://|www\.)[^\s<>"']+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}(?:/[^\s<>"']*)?)""",
         )
         val URL_STRUCTURAL_LINE_BREAK = Regex(
-            pattern = """(?<=[/:?#&=%+_~-])\s*\R\s*(?=[A-Za-z0-9/:?#&=%+_~.\-])|(?<=[A-Za-z0-9])\s*\R\s*(?=[/:?#&=%+_~.\-])""",
+            pattern = """(?<=[/:?#&=%+_~-])\s*\R\s*(?=[\p{L}\p{N}/:?#&=%+_~.\-])|(?<=[\p{L}\p{N}])\s*\R\s*(?=[/:?#&=%+_~.\-])""",
         )
         val URL_DOT_OCR_WHITESPACE = Regex(
             pattern = """(?<=[A-Za-z0-9])\.\s+(?=[A-Za-z0-9-]+(?:[./?#&=%:_~-]))""",
