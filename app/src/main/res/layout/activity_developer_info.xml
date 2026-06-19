@@ -49,7 +49,7 @@
             android:layout_marginTop="10dp"
             android:gravity="center"
             android:lineSpacingExtra="4dp"
-            android:text="스크린샷을 저장하고, OCR·이미지 분류·자동 태그로 다시 찾기 쉽게 만드는 Android 앱을 개발합니다."
+            android:text="SnapMind는 스크린샷을 단순히 보관하는 대신 OCR, 이미지 분류, 자동 태그, 메모 추천으로 필요한 순간 다시 찾기 쉽게 정리하는 개인 기억 저장소입니다."
             android:textColor="@color/snap_text_secondary"
             android:textSize="15sp" />
 
@@ -60,7 +60,7 @@
             android:background="@drawable/bg_badge_soft"
             android:lineSpacingExtra="4dp"
             android:padding="16dp"
-            android:text="역할: 데이터 저장 구조, AI 처리 파이프라인, 이미지 수집 화면, 검색·태그·상세·휴지통 UI 구현"
+            android:text="이미지 속 URL은 제목, 설명, 대표 이미지를 담은 링크 카드로 보여주고 YouTube 링크는 썸네일과 영상 정보를 보강합니다.&#10;&#10;악성 링크 경고, Gemini 저장 이유 추천, 화질 업그레이드, 갤러리 저장, 검색, 태그, 즐겨찾기, 휴지통, PDF 내보내기까지 스크린샷을 수집한 뒤 다시 활용하는 흐름을 한 곳에서 이어갑니다."
             android:textColor="@color/snap_text"
             android:textSize="14sp" />
     </LinearLayout>
