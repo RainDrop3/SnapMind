@@ -190,7 +190,7 @@ class ImageClassifier @Inject constructor(
     }
 
     companion object {
-        const val MODEL_ASSET = "image_classifier_v4_0_0.tflite"
+        const val MODEL_ASSET = "image_classifier_v4_1_0.tflite"
         const val LABELS_ASSET = "labels.txt"
         const val MODEL_VERSION = "v1.0.0"
         private const val TAG = "ImageClassifier"
