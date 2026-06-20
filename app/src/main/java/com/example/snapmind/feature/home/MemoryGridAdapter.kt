@@ -69,7 +69,7 @@ class MemoryGridAdapter(
                 .joinToString("\n") { it.displayName }
                 .ifBlank { MemoryCategory.OTHERS.displayName }
             memoText.text = item.memo
-            memoText.visibility = if (item.memo.isBlank()) View.GONE else View.VISIBLE
+            memoText.visibility = if (item.memo.isBlank()) View.INVISIBLE else View.VISIBLE
             timeText.text = DateUtils.getRelativeTimeSpanString(
                 item.createdAtMillis,
                 System.currentTimeMillis(),
