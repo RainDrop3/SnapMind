@@ -8,7 +8,7 @@ plugins {
 }
 
 // 개발자 발급 API 키는 git에 커밋되지 않는 local.properties 에서 읽어 BuildConfig 에 내장한다.
-// 키가 없으면 빈 문자열 → 해당 원격 기능은 자동으로 SKIPPED 처리된다. (템플릿: local.properties.template)
+// 키가 없으면 해당 원격 기능은 자동으로 SKIPPED 처리된다. (템플릿: local.properties.template)
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -29,8 +29,9 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "GEMINI_API_KEY", "\"${localProperty("GEMINI_API_KEY")}\"")
-        buildConfigField("String", "VISION_API_KEY", "\"${localProperty("VISION_API_KEY")}\"")
         buildConfigField("String", "YOUTUBE_API_KEY", "\"${localProperty("YOUTUBE_API_KEY")}\"")
+        buildConfigField("String", "SAFE_BROWSING_API_KEY", "\"${localProperty("SAFE_BROWSING_API_KEY")}\"")
+        buildConfigField("String", "CLIPDROP_API_KEY", "\"${localProperty("CLIPDROP_API_KEY")}\"")
 
         kapt {
             arguments {
@@ -86,6 +87,7 @@ dependencies {
     implementation(libs.okhttp.logging)
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
+    implementation(libs.jsoup)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     kapt(libs.androidx.room.compiler)

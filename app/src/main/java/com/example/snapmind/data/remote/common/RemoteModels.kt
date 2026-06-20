@@ -1,16 +1,18 @@
 package com.example.snapmind.data.remote.common
 
-data class RemoteVisionLabel(
-    val label: String,
-    val score: Float,
-)
-
 data class GeminiMemoSuggestion(
     val text: String,
 )
 
-data class YoutubeVideoLink(
-    val videoId: String,
-    val title: String?,
+data class RemoteLinkPreview(
     val url: String,
+    val title: String?,
+    val description: String?,
+    val imageUrl: String?,
+    val siteName: String?,
+)
+
+data class RemoteLinkSafety(
+    val status: String,
+    val threatTypes: List<String> = emptyList(),
 )

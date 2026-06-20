@@ -1,5 +1,6 @@
 package com.example.snapmind.feature.memorydetail
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -17,6 +18,10 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.bumptech.glide.Glide
 import com.example.snapmind.MainActivity
 import com.example.snapmind.R
+import com.example.snapmind.core.link.YoutubeLinkHelper
+import com.example.snapmind.data.model.ImageEnhancementState
+import com.example.snapmind.data.model.LinkPreview
+import com.example.snapmind.data.model.LinkSafetyStatus
 import com.example.snapmind.data.model.MemoryCategory
 import com.example.snapmind.data.model.MemoryItem
 import com.example.snapmind.databinding.ActivityMemoryDetailBinding
@@ -25,15 +30,19 @@ import dagger.hilt.android.AndroidEntryPoint
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import javax.inject.Inject
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class DetailActivity : AppCompatActivity() {
 
+    @Inject lateinit var youtubeLinkHelper: YoutubeLinkHelper
+
     private val viewModel: DetailViewModel by viewModels()
     private lateinit var binding: ActivityMemoryDetailBinding
     private var ocrVisible = false
     private var suppressMemoTextWatcher = false
+    private var imageEnhancementLoading = false
     private var currentMemory: MemoryItem? = null
     private var currentTags: List<String> = emptyList()
     private var currentCategories: List<MemoryCategory> = emptyList()
@@ -69,6 +78,8 @@ class DetailActivity : AppCompatActivity() {
             finish()
         }
         binding.geminiSuggestButton.setOnClickListener { viewModel.requestGeminiSuggestion() }
+        binding.imageEnhancementButton.setOnClickListener { showImageEnhancementConsent() }
+        binding.linkPreviewNoticeButton.setOnClickListener { showLinkRecognitionNotice() }
         binding.geminiSuggestionChip.setOnClickListener { viewModel.acceptGeminiSuggestion() }
         binding.geminiSuggestionChip.setOnCloseIconClickListener { viewModel.dismissGeminiSuggestion() }
         binding.memoEditText.doOnTextChanged { text, _, _, _ ->
@@ -110,9 +121,20 @@ class DetailActivity : AppCompatActivity() {
                         if (loading) "추천 받는 중…" else "Gemini 메모 추천받기"
                     // 추천 받는 동안에는 메모 수정 불가 + 칸에 로딩 인디케이터 표시 + 저장 비활성화.
                     binding.memoEditText.isEnabled = !loading
+                    binding.memoLoadingOverlay.visibility =
+                        if (loading) View.VISIBLE else View.GONE
                     binding.memoLoadingIndicator.visibility =
                         if (loading) View.VISIBLE else View.GONE
                     binding.saveMemoButton.isEnabled = !loading
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.imageEnhancementLoading.collect { loading ->
+                    imageEnhancementLoading = loading
+                    renderImageEnhancementButton(currentMemory)
                 }
             }
         }
@@ -148,11 +170,12 @@ class DetailActivity : AppCompatActivity() {
         syncMemoEditText(memoDraft)
         binding.ocrText.text = memory.ocrText.ifBlank { "아직 OCR 텍스트가 준비되지 않았습니다." }
         renderPreview(memory)
+        renderImageEnhancementButton(memory)
         renderCategoryChips(categories)
         renderTagChips(tags)
         binding.updatedAtText.text = "최근 수정: ${updatedAtFormat.format(Date(memory.updatedAtMillis))}"
         renderSuggestion(memory)
-        renderYoutube(memory)
+        renderLinkPreview(memory)
         binding.favoriteDetailButton.iconTint = ContextCompat.getColorStateList(
             this,
             if (memory.isFavorite) R.color.snap_rose else R.color.snap_text_secondary,
@@ -182,6 +205,43 @@ class DetailActivity : AppCompatActivity() {
         }
     }
 
+    private fun renderImageEnhancementButton(memory: MemoryItem?) = with(binding.imageEnhancementButton) {
+        val hasImage = !memory?.imageUri.isNullOrBlank()
+        visibility = if (hasImage) View.VISIBLE else View.GONE
+        isEnabled = hasImage && !imageEnhancementLoading
+        text = when {
+            imageEnhancementLoading -> "업그레이드 중…"
+            memory?.imageEnhancementStatus == ImageEnhancementState.SUCCESS -> "화질 업그레이드 다시 실행"
+            memory?.imageEnhancementStatus == ImageEnhancementState.FAILED -> "화질 업그레이드 다시 시도"
+            else -> "화질 업그레이드"
+        }
+    }
+
+    private fun showImageEnhancementConsent() {
+        val memory = currentMemory
+        if (memory?.imageUri.isNullOrBlank()) {
+            Toast.makeText(this, "업그레이드할 이미지가 없어요.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("이미지를 온라인으로 업로드합니다")
+            .setMessage(
+                "화질 업그레이드를 위해 현재 이미지가 Clipdrop API 서버로 전송됩니다. " +
+                    "민감한 정보가 포함된 이미지는 진행하지 마세요. 동의하면 업로드 후 결과 이미지를 갤러리에 저장합니다.",
+            )
+            .setNegativeButton("취소", null)
+            .setPositiveButton("동의하고 진행") { _, _ -> viewModel.requestImageEnhancement() }
+            .show()
+    }
+
+    private fun showLinkRecognitionNotice() {
+        AlertDialog.Builder(this)
+            .setTitle("URL 자동 인식 주의사항")
+            .setMessage(LINK_RECOGNITION_NOTICE)
+            .setPositiveButton("확인", null)
+            .show()
+    }
+
     /** 위쪽 행: staged 카테고리. 추가/제거는 "저장" 전까지 draft 에만 반영된다. */
     private fun renderCategoryChips(categories: List<MemoryCategory>) = with(binding.detailCategoryChipGroup) {
         removeAllViews()
@@ -195,13 +255,15 @@ class DetailActivity : AppCompatActivity() {
                 },
             )
         }
-        addView(
-            Chip(this@DetailActivity).apply {
-                text = "+ 카테고리"
-                isCheckable = false
-                setOnClickListener { showCategoryPicker() }
-            },
-        )
+        if (categories.size < MemoryCategory.MAX_PER_MEMORY) {
+            addView(
+                Chip(this@DetailActivity).apply {
+                    text = "+ 카테고리"
+                    isCheckable = false
+                    setOnClickListener { showCategoryPicker() }
+                },
+            )
+        }
     }
 
     /** 아래쪽 행: staged 태그. 추가/제거는 "저장" 전까지 draft 에만 반영된다. */
@@ -228,7 +290,16 @@ class DetailActivity : AppCompatActivity() {
 
     /** 고정된 선택 가능 카테고리(code/Others 제외)를 단일 선택 다이얼로그로 띄워 staged 추가한다. */
     private fun showCategoryPicker() {
-        val options = MemoryCategory.selectable
+        if (currentCategories.size >= MemoryCategory.MAX_PER_MEMORY) {
+            Toast.makeText(
+                this,
+                "카테고리는 최대 ${MemoryCategory.MAX_PER_MEMORY}개까지 지정할 수 있어요.",
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        val options = MemoryCategory.selectable.filterNot { it in currentCategories }
+        if (options.isEmpty()) return
         val names = options.map { it.displayName }.toTypedArray()
         AlertDialog.Builder(this)
             .setTitle("카테고리 추가 (최대 ${MemoryCategory.MAX_PER_MEMORY}개)")
@@ -278,13 +349,110 @@ class DetailActivity : AppCompatActivity() {
         text = if (suggestion.isNullOrBlank()) "" else "Gemini 제안: $suggestion"
     }
 
-    private fun renderYoutube(memory: MemoryItem) = with(binding.youtubeButton) {
-        visibility = if (memory.youtubeUrl.isNullOrBlank()) View.GONE else View.VISIBLE
-        text = memory.youtubeTitle?.let { "영상 바로 이동: $it" } ?: "영상 바로 이동"
-        setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(memory.youtubeUrl)))
+    private fun renderLinkPreview(memory: MemoryItem) = with(binding) {
+        val preview = memory.linkPreview
+        linkPreviewCard.visibility = if (preview == null) View.GONE else View.VISIBLE
+        if (preview == null) {
+            linkPreviewCard.setOnClickListener(null)
+            return@with
+        }
+
+        val site = preview.siteName ?: preview.url.toHostLabel()
+        linkPreviewSite.visibility = if (site.isNullOrBlank()) View.GONE else View.VISIBLE
+        linkPreviewSite.text = site.orEmpty()
+        linkPreviewTitle.text = preview.title ?: site ?: preview.url
+        linkPreviewDescription.visibility =
+            if (preview.description.isNullOrBlank()) View.GONE else View.VISIBLE
+        linkPreviewDescription.text = preview.description.orEmpty()
+        linkPreviewUrl.text = preview.url
+        renderLinkSafety(preview)
+
+        if (preview.imageUrl.isNullOrBlank()) {
+            linkPreviewImage.visibility = View.GONE
+            linkPreviewImage.setImageDrawable(null)
+        } else {
+            linkPreviewImage.visibility = View.VISIBLE
+            Glide.with(linkPreviewImage)
+                .load(preview.imageUrl)
+                .centerCrop()
+                .into(linkPreviewImage)
+        }
+        linkPreviewCard.setOnClickListener {
+            confirmAndOpenLink(preview)
         }
     }
+
+    private fun renderLinkSafety(preview: LinkPreview) = with(binding) {
+        val warning = when (preview.safetyStatus) {
+            LinkSafetyStatus.UNSAFE -> "위험 가능성이 있는 링크"
+            LinkSafetyStatus.CHECK_FAILED -> "안전 확인 실패"
+            LinkSafetyStatus.ACCESS_FAILED -> "링크 접근 확인 실패"
+            else -> null
+        }
+        linkSafetyWarning.visibility = if (warning == null) View.GONE else View.VISIBLE
+        linkSafetyWarning.text = when {
+            warning == null -> ""
+            preview.safetyThreatTypes.isNullOrBlank() -> warning
+            else -> "$warning · ${preview.safetyThreatTypes}"
+        }
+        if (warning != null) {
+            linkSafetyWarning.setBackgroundResource(
+                if (preview.safetyStatus == LinkSafetyStatus.UNSAFE) {
+                    R.drawable.bg_badge_error
+                } else {
+                    R.drawable.bg_badge_amber
+                },
+            )
+        }
+        linkPreviewCard.strokeColor = ContextCompat.getColor(
+            this@DetailActivity,
+            when (preview.safetyStatus) {
+                LinkSafetyStatus.UNSAFE -> R.color.snap_rose
+                LinkSafetyStatus.ACCESS_FAILED,
+                LinkSafetyStatus.CHECK_FAILED -> R.color.snap_amber
+                else -> R.color.snap_outline
+            },
+        )
+    }
+
+    private fun confirmAndOpenLink(preview: LinkPreview) {
+        if (preview.safetyStatus != LinkSafetyStatus.UNSAFE) {
+            openLink(preview.url)
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("위험 가능성이 있는 링크")
+            .setMessage("Safe Browsing에서 ${preview.safetyThreatTypes ?: "위험"} 항목으로 감지했습니다. 그래도 열까요?")
+            .setNegativeButton("취소", null)
+            .setPositiveButton("열기") { _, _ -> openLink(preview.url) }
+            .show()
+    }
+
+    private fun openLink(url: String) {
+        val openUrl = youtubeLinkHelper.watchUrl(url) ?: url
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(openUrl))
+            .addCategory(Intent.CATEGORY_BROWSABLE)
+        try {
+            startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(
+                this,
+                "링크를 열 수 있는 앱이 없어요. OCR 텍스트에서 직접 복사해 이동해 주세요.",
+                Toast.LENGTH_LONG,
+            ).show()
+        } catch (_: IllegalArgumentException) {
+            Toast.makeText(
+                this,
+                "URL 자동 인식이 실패했을 수 있어요. OCR 텍스트에서 직접 복사해 이동해 주세요.",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
+
+    private fun String.toHostLabel(): String? =
+        runCatching { Uri.parse(this).host?.removePrefix("www.") }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
 
     private fun MemoryCategory.thumbnailBackground(): Int =
         when (this) {
@@ -299,6 +467,8 @@ class DetailActivity : AppCompatActivity() {
 
     companion object {
         private const val EXTRA_MEMORY_ID = "extra_memory_id"
+        private const val LINK_RECOGNITION_NOTICE =
+            "URL 자동 인식은 OCR 결과에 따라 실패할 수 있어요. 정상적으로 열리지 않으면 OCR 텍스트에서 링크를 직접 복사해 붙여넣어 이동해 주세요."
         private val updatedAtFormat = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.KOREA)
 
         fun createIntent(context: Context, memoryId: Long): Intent =

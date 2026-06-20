@@ -13,4 +13,5 @@
     <color name="snap_text">#111827</color>
     <color name="snap_text_secondary">#64748B</color>
     <color name="snap_outline">#E5E7EB</color>
+    <color name="snap_loading_overlay">#B3E5E7EB</color>
 </resources>

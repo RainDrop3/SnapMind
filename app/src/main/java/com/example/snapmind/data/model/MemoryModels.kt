@@ -26,9 +26,36 @@ enum class MemoryCategory(val displayName: String, val glyph: String) {
     }
 }
 
+data class LinkPreview(
+    val url: String,
+    val title: String? = null,
+    val description: String? = null,
+    val imageUrl: String? = null,
+    val siteName: String? = null,
+    val safetyStatus: String = LinkSafetyStatus.UNCHECKED,
+    val safetyThreatTypes: String? = null,
+    val safetyCheckedAtMillis: Long? = null,
+)
+
+object LinkSafetyStatus {
+    const val UNCHECKED = "UNCHECKED"
+    const val SAFE = "SAFE"
+    const val UNSAFE = "UNSAFE"
+    const val CHECK_FAILED = "CHECK_FAILED"
+    const val ACCESS_FAILED = "ACCESS_FAILED"
+}
+
+object ImageEnhancementState {
+    const val IDLE = "IDLE"
+    const val RUNNING = "RUNNING"
+    const val SUCCESS = "SUCCESS"
+    const val FAILED = "FAILED"
+}
+
 data class MemoryItem(
     val id: Long,
     val imageUri: String? = null,
+    val originalImageUri: String? = null,
     val sourceLabel: String = "SnapMind",
     /** 이 메모리에 부여된 카테고리(최대 2개, rank 순). 비어 있으면 OTHERS로 간주. */
     val categories: List<MemoryCategory> = emptyList(),
@@ -40,8 +67,10 @@ data class MemoryItem(
     val processingStatus: ProcessingStatus = ProcessingStatus.PROCESSING,
     val isFavorite: Boolean = false,
     val geminiSuggestion: String? = null,
-    val youtubeTitle: String? = null,
-    val youtubeUrl: String? = null,
+    val linkPreview: LinkPreview? = null,
+    val imageEnhancementStatus: String = ImageEnhancementState.IDLE,
+    val imageEnhancementProvider: String? = null,
+    val imageEnhancedAtMillis: Long? = null,
     val deletedAtMillis: Long? = null,
 ) {
     val isDeleted: Boolean = deletedAtMillis != null

@@ -12,8 +12,9 @@ import com.example.snapmind.data.local.dao.MemoryTagDao
 import com.example.snapmind.data.local.dao.OcrTextDao
 import com.example.snapmind.data.local.dao.TagDao
 import com.example.snapmind.data.local.dao.VisionLabelDao
-import com.example.snapmind.data.local.dao.YoutubeLinkDao
+import com.example.snapmind.data.local.dao.LinkPreviewDao
 import com.example.snapmind.data.local.entity.ClassificationEntity
+import com.example.snapmind.data.local.entity.LinkPreviewEntity
 import com.example.snapmind.data.local.entity.MemoEntity
 import com.example.snapmind.data.local.entity.MemoryItemEntity
 import com.example.snapmind.data.local.entity.MemorySearchFts
@@ -21,7 +22,6 @@ import com.example.snapmind.data.local.entity.MemoryTagCrossRef
 import com.example.snapmind.data.local.entity.OcrTextEntity
 import com.example.snapmind.data.local.entity.TagEntity
 import com.example.snapmind.data.local.entity.VisionLabelEntity
-import com.example.snapmind.data.local.entity.YoutubeLinkEntity
 
 @Database(
     entities = [
@@ -32,7 +32,7 @@ import com.example.snapmind.data.local.entity.YoutubeLinkEntity
         TagEntity::class,
         MemoryTagCrossRef::class,
         MemoEntity::class,
-        YoutubeLinkEntity::class,
+        LinkPreviewEntity::class,
         MemorySearchFts::class,
     ],
     version = SnapMindDatabase.VERSION,
@@ -48,11 +48,11 @@ abstract class SnapMindDatabase : RoomDatabase() {
     abstract fun tagDao(): TagDao
     abstract fun memoryTagDao(): MemoryTagDao
     abstract fun memoDao(): MemoDao
-    abstract fun youtubeLinkDao(): YoutubeLinkDao
+    abstract fun linkPreviewDao(): LinkPreviewDao
     abstract fun memorySearchDao(): MemorySearchDao
 
     companion object {
-        const val VERSION = 1
+        const val VERSION = 4
         const val NAME = "snapmind.db"
     }
 }

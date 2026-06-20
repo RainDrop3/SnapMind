@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.StateFlow
 /** 온디맨드 Gemini 추천 1회 완료 이벤트(상세 화면 토스트용). */
 data class GeminiSuggestionEvent(val memoryId: Long, val result: AppResult<Unit>)
 
+/** 온디맨드 화질 업그레이드 1회 완료 이벤트(상세 화면 토스트용). */
+data class ImageEnhancementEvent(val memoryId: Long, val result: AppResult<Unit>)
+
 interface MemoryRepository {
     val memories: StateFlow<List<MemoryItem>>
 
@@ -20,6 +23,12 @@ interface MemoryRepository {
 
     /** 추천 완료(성공/실패) 이벤트 스트림. 화면에 떠 있는 구독자만 소비한다. */
     val geminiEvents: SharedFlow<GeminiSuggestionEvent>
+
+    /** 현재 화질 업그레이드 요청이 진행 중인 메모리 id 집합. */
+    val imageEnhancementInProgress: StateFlow<Set<Long>>
+
+    /** 화질 업그레이드 완료(성공/실패) 이벤트 스트림. */
+    val imageEnhancementEvents: SharedFlow<ImageEnhancementEvent>
 
     fun getMemory(memoryId: Long): MemoryItem?
     fun activeMemories(): List<MemoryItem>
@@ -66,6 +75,9 @@ interface MemoryRepository {
 
     /** 상세 화면 버튼에서 호출하는 온디맨드 Gemini 추천. 화면을 나가도 백그라운드에서 끝까지 처리된다. */
     fun requestGeminiSuggestion(memoryId: Long)
+
+    /** 상세 화면 버튼에서 호출하는 온디맨드 화질 업그레이드. 사용자가 동의한 뒤에만 호출한다. */
+    fun requestImageEnhancement(memoryId: Long)
 
     /** 현재 상세 화면에 떠 있는 메모리 id(없으면 null). 추천 완료 시 칩 vs 자동 적용 결정에 사용. */
     fun setViewingMemory(memoryId: Long?)

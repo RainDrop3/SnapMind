@@ -1,5 +1,6 @@
 package com.example.snapmind.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -17,11 +18,19 @@ import androidx.room.PrimaryKey
         ),
     ],
 )
-data class YoutubeLinkEntity(
+data class LinkPreviewEntity(
     @PrimaryKey
     val memoryId: Long,
-    val videoId: String,
+    @ColumnInfo(name = "videoId")
+    val legacyId: String,
     val title: String? = null,
     val url: String,
+    val description: String? = null,
+    val imageUrl: String? = null,
+    val siteName: String? = null,
+    @ColumnInfo(defaultValue = "'UNCHECKED'")
+    val safetyStatus: String = "UNCHECKED",
+    val safetyThreatTypes: String? = null,
+    val safetyCheckedAt: Long? = null,
     val createdAt: Long,
 )

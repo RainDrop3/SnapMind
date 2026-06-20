@@ -15,7 +15,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="API 및 처리 상태"
+            android:text="보강 기능 및 처리 상태"
             android:textColor="@color/snap_text"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -25,37 +25,227 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Vision, Gemini, YouTube API 키는 앱에 내장되어 있습니다. 각 기능은 아래 스위치로 켜고 끌 수 있어요."
+            android:text="아래 옵션에서 링크 카드, 악성 링크 경고, 화질 업그레이드, 메모 추천 기능을 필요에 따라 켜고 끌 수 있습니다."
             android:textColor="@color/snap_text_secondary"
             android:textSize="14sp" />
 
-        <com.google.android.material.switchmaterial.SwitchMaterial
-            android:id="@+id/visionSwitch"
+        <LinearLayout
+            android:id="@+id/linkPreviewSettingRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="22dp"
-            android:checked="true"
-            android:text="Vision 시각 태깅"
-            android:textColor="@color/snap_text"
-            app:useMaterialThemeColors="true" />
+            android:gravity="center_vertical"
+            android:minHeight="48dp"
+            android:orientation="horizontal">
 
-        <com.google.android.material.switchmaterial.SwitchMaterial
-            android:id="@+id/geminiSwitch"
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="OCR URL 링크 카드"
+                    android:textColor="@color/snap_text"
+                    android:textSize="16sp" />
+
+                <ImageButton
+                    android:id="@+id/linkPreviewInfoButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="OCR URL 링크 카드 설명"
+                    android:padding="9dp"
+                    android:src="@drawable/ic_info_outline"
+                    app:tint="@color/snap_text_secondary" />
+            </LinearLayout>
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/visionSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                app:useMaterialThemeColors="true" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/linkChildOptionsContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="Gemini 메모 추천"
-            android:textColor="@color/snap_text"
-            app:useMaterialThemeColors="true" />
+            android:orientation="vertical"
+            android:paddingStart="20dp">
 
-        <com.google.android.material.switchmaterial.SwitchMaterial
-            android:id="@+id/youtubeSwitch"
+            <LinearLayout
+                android:id="@+id/youtubeSettingRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="44dp"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="YouTube 링크 보강"
+                        android:textColor="@color/snap_text"
+                        android:textSize="14sp" />
+
+                    <ImageButton
+                        android:id="@+id/youtubeInfoButton"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="YouTube 링크 보강 설명"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_info_outline"
+                        app:tint="@color/snap_text_secondary" />
+                </LinearLayout>
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/youtubeSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:scaleX="0.82"
+                    android:scaleY="0.82"
+                    app:useMaterialThemeColors="true" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/safeBrowsingSettingRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="44dp"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="악성 링크 경고"
+                        android:textColor="@color/snap_text"
+                        android:textSize="14sp" />
+
+                    <ImageButton
+                        android:id="@+id/safeBrowsingInfoButton"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="악성 링크 경고 설명"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_info_outline"
+                        app:tint="@color/snap_text_secondary" />
+                </LinearLayout>
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/safeBrowsingSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:scaleX="0.82"
+                    android:scaleY="0.82"
+                    app:useMaterialThemeColors="true" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/imageEnhancementSettingRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="YouTube 딥링크"
-            android:textColor="@color/snap_text"
-            app:useMaterialThemeColors="true" />
+            android:gravity="center_vertical"
+            android:minHeight="48dp"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="화질 업그레이드 API"
+                    android:textColor="@color/snap_text"
+                    android:textSize="16sp" />
+
+                <ImageButton
+                    android:id="@+id/imageEnhancementInfoButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="화질 업그레이드 API 설명"
+                    android:padding="9dp"
+                    android:src="@drawable/ic_info_outline"
+                    app:tint="@color/snap_text_secondary" />
+            </LinearLayout>
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/imageEnhancementSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                app:useMaterialThemeColors="true" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/geminiSettingRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:minHeight="48dp"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Gemini 메모 추천"
+                    android:textColor="@color/snap_text"
+                    android:textSize="16sp" />
+
+                <ImageButton
+                    android:id="@+id/geminiInfoButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Gemini 메모 추천 설명"
+                    android:padding="9dp"
+                    android:src="@drawable/ic_info_outline"
+                    app:tint="@color/snap_text_secondary" />
+            </LinearLayout>
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/geminiSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                app:useMaterialThemeColors="true" />
+        </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/clearPdfCacheButton"

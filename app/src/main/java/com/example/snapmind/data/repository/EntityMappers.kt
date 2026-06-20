@@ -2,6 +2,7 @@ package com.example.snapmind.data.repository
 
 import com.example.snapmind.data.local.entity.ClassificationEntity
 import com.example.snapmind.data.local.entity.GeminiMemoStatus
+import com.example.snapmind.data.local.entity.LinkPreviewEntity
 import com.example.snapmind.data.local.entity.MemoEntity
 import com.example.snapmind.data.local.entity.MemoryItemEntity
 import com.example.snapmind.data.local.entity.MemorySearchFts
@@ -9,7 +10,7 @@ import com.example.snapmind.data.local.entity.OcrTextEntity
 import com.example.snapmind.data.local.entity.OptionalRemoteProcessingStatus
 import com.example.snapmind.data.local.entity.StandardProcessingStatus
 import com.example.snapmind.data.local.entity.TagEntity
-import com.example.snapmind.data.local.entity.YoutubeLinkEntity
+import com.example.snapmind.data.model.LinkPreview
 import com.example.snapmind.data.model.MemoryCategory
 import com.example.snapmind.data.model.MemoryItem
 import com.example.snapmind.data.model.ProcessingStatus
@@ -21,7 +22,7 @@ data class MemoryAggregate(
     val tags: List<TagEntity>,
     /** rank 오름차순으로 정렬된 상위 카테고리 분류(최대 2개). */
     val classifications: List<ClassificationEntity>,
-    val youtubeLink: YoutubeLinkEntity?,
+    val linkPreview: LinkPreviewEntity?,
 ) {
     val topClassification: ClassificationEntity? get() = classifications.firstOrNull()
 }
@@ -29,6 +30,7 @@ data class MemoryAggregate(
 fun MemoryAggregate.toDomain(): MemoryItem = MemoryItem(
     id = item.id,
     imageUri = item.imageUri,
+    originalImageUri = item.originalImageUri,
     sourceLabel = SOURCE_LABEL,
     categories = classifications.toMemoryCategories(),
     memo = memo?.body.orEmpty(),
@@ -39,9 +41,22 @@ fun MemoryAggregate.toDomain(): MemoryItem = MemoryItem(
     processingStatus = item.composeProcessingStatus(),
     isFavorite = item.isFavorite,
     geminiSuggestion = memo?.geminiSuggestion,
-    youtubeTitle = youtubeLink?.title,
-    youtubeUrl = youtubeLink?.url,
+    linkPreview = linkPreview?.toDomain(),
+    imageEnhancementStatus = item.imageEnhancementStatus.name,
+    imageEnhancementProvider = item.imageEnhancementProvider,
+    imageEnhancedAtMillis = item.imageEnhancedAt,
     deletedAtMillis = item.deletedAt,
+)
+
+private fun LinkPreviewEntity.toDomain(): LinkPreview = LinkPreview(
+    url = url,
+    title = title,
+    description = description,
+    imageUrl = imageUrl,
+    siteName = siteName,
+    safetyStatus = safetyStatus,
+    safetyThreatTypes = safetyThreatTypes,
+    safetyCheckedAtMillis = safetyCheckedAt,
 )
 
 fun MemoryItemEntity.composeProcessingStatus(): ProcessingStatus {
@@ -98,7 +113,10 @@ fun buildFtsRow(aggregate: MemoryAggregate): MemorySearchFts = MemorySearchFts(
     memoBody = aggregate.memo?.body.orEmpty(),
     tagText = aggregate.tags.joinToString(separator = " ") { it.displayName },
     categoryText = aggregate.topClassification?.label.orEmpty(),
-    youtubeTitle = aggregate.youtubeLink?.title.orEmpty(),
+    youtubeTitle = aggregate.linkPreview?.let { preview ->
+        listOfNotNull(preview.title, preview.description, preview.siteName, preview.url)
+            .joinToString(separator = " ")
+    }.orEmpty(),
 )
 
 private const val SOURCE_LABEL = "SnapMind"

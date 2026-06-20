@@ -7,7 +7,7 @@ import com.example.snapmind.data.local.dao.MemorySearchDao
 import com.example.snapmind.data.local.dao.MemoryTagDao
 import com.example.snapmind.data.local.dao.OcrTextDao
 import com.example.snapmind.data.local.dao.TagDao
-import com.example.snapmind.data.local.dao.YoutubeLinkDao
+import com.example.snapmind.data.local.dao.LinkPreviewDao
 import com.example.snapmind.data.local.entity.MemoryItemEntity
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,7 +19,7 @@ class MemoryAggregateBuilder @Inject constructor(
     private val tagDao: TagDao,
     private val memoryTagDao: MemoryTagDao,
     private val classificationDao: ClassificationDao,
-    private val youtubeLinkDao: YoutubeLinkDao,
+    private val linkPreviewDao: LinkPreviewDao,
 ) {
 
     suspend fun build(entity: MemoryItemEntity): MemoryAggregate {
@@ -31,7 +31,7 @@ class MemoryAggregateBuilder @Inject constructor(
             memo = memoDao.getByMemoryId(entity.id),
             tags = tagEntities,
             classifications = classificationDao.getTopCategories(entity.id),
-            youtubeLink = youtubeLinkDao.getByMemoryId(entity.id),
+            linkPreview = linkPreviewDao.getByMemoryId(entity.id),
         )
     }
 }

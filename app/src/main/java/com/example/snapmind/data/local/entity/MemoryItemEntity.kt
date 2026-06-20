@@ -19,6 +19,7 @@ data class MemoryItemEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0L,
     val imageUri: String,
+    val originalImageUri: String? = null,
     val sourceUri: String? = null,
     val mimeType: String? = null,
     val contentHash: String? = null,
@@ -29,6 +30,10 @@ data class MemoryItemEntity(
     val visionLabelStatus: OptionalRemoteProcessingStatus = OptionalRemoteProcessingStatus.SKIPPED,
     val geminiMemoStatus: GeminiMemoStatus = GeminiMemoStatus.SKIPPED,
     val youtubeLinkStatus: OptionalRemoteProcessingStatus = OptionalRemoteProcessingStatus.SKIPPED,
+    @ColumnInfo(defaultValue = "'IDLE'")
+    val imageEnhancementStatus: ImageEnhancementStatus = ImageEnhancementStatus.IDLE,
+    val imageEnhancementProvider: String? = null,
+    val imageEnhancedAt: Long? = null,
     val taggingStatus: StandardProcessingStatus = StandardProcessingStatus.PENDING,
     @ColumnInfo(defaultValue = "0")
     val isFavorite: Boolean = false,

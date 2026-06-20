@@ -25,6 +25,13 @@ enum class GeminiMemoStatus {
     SKIPPED,
 }
 
+enum class ImageEnhancementStatus {
+    IDLE,
+    RUNNING,
+    SUCCESS,
+    FAILED,
+}
+
 enum class TagAssignmentSource {
     OCR,
     TFLITE,
