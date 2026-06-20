@@ -68,7 +68,8 @@ class MemoryGridAdapter(
                 .take(MemoryCategory.MAX_PER_MEMORY)
                 .joinToString("\n") { it.displayName }
                 .ifBlank { MemoryCategory.OTHERS.displayName }
-            memoText.text = item.memo.ifBlank { "메모가 아직 없어요. 상세 화면에서 저장 이유를 남겨보세요." }
+            memoText.text = item.memo
+            memoText.visibility = if (item.memo.isBlank()) View.GONE else View.VISIBLE
             timeText.text = DateUtils.getRelativeTimeSpanString(
                 item.createdAtMillis,
                 System.currentTimeMillis(),

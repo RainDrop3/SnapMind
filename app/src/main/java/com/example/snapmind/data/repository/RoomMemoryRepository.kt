@@ -212,7 +212,7 @@ class RoomMemoryRepository @Inject constructor(
         memoDao.upsert(
             MemoEntity(
                 memoryId = memoryId,
-                body = initialMemo.trim().ifBlank { DEFAULT_MEMO_BODY },
+                body = initialMemo.trim(),
                 geminiSuggestion = null,
                 createdAt = now,
                 updatedAt = now,
@@ -642,7 +642,6 @@ class RoomMemoryRepository @Inject constructor(
 
     companion object {
         private const val TAG = "RoomMemoryRepository"
-        private const val DEFAULT_MEMO_BODY = "새 이미지 분석을 준비 중입니다."
         private const val USER_CATEGORY_VERSION = "user"
 
         @Suppress("unused")

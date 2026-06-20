@@ -135,7 +135,7 @@ class InMemoryMemoryRepository @Inject constructor(
             imageUri = targetFile.toUri().toString(),
             sourceLabel = sourceLabel,
             categories = listOf(MemoryCategory.OTHERS),
-            memo = initialMemo.trim().ifBlank { "새 이미지 분석을 준비 중입니다." },
+            memo = initialMemo.trim(),
             ocrText = "",
             tags = initialTags
                 .map { it.trim().removePrefix("#") }

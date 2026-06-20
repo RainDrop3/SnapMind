@@ -33,7 +33,7 @@ object DatabaseModule {
         context,
         SnapMindDatabase::class.java,
         SnapMindDatabase.NAME,
-    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+    ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
 
     @Provides
     fun provideMemoryItemDao(db: SnapMindDatabase): MemoryItemDao = db.memoryItemDao()
@@ -84,6 +84,19 @@ object DatabaseModule {
             db.execSQL("ALTER TABLE memory_items ADD COLUMN imageEnhancementStatus TEXT NOT NULL DEFAULT 'IDLE'")
             db.execSQL("ALTER TABLE memory_items ADD COLUMN imageEnhancementProvider TEXT")
             db.execSQL("ALTER TABLE memory_items ADD COLUMN imageEnhancedAt INTEGER")
+        }
+    }
+
+    /** 기존 자동 기본 메모를 실제 빈 메모로 정리한다. */
+    private val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "UPDATE memos SET body = '' WHERE body = '새 이미지 분석을 준비 중입니다.'",
+            )
+            db.execSQL(
+                "UPDATE memory_search_fts SET memoBody = '' " +
+                    "WHERE memoBody = '새 이미지 분석을 준비 중입니다.'",
+            )
         }
     }
 }

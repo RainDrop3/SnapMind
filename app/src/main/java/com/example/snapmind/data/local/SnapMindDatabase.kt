@@ -52,7 +52,7 @@ abstract class SnapMindDatabase : RoomDatabase() {
     abstract fun memorySearchDao(): MemorySearchDao
 
     companion object {
-        const val VERSION = 4
+        const val VERSION = 5
         const val NAME = "snapmind.db"
     }
 }
