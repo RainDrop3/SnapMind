@@ -42,6 +42,7 @@ class DetailActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMemoryDetailBinding
     private var ocrVisible = false
     private var suppressMemoTextWatcher = false
+    private var geminiRequestLoading = false
     private var imageEnhancementLoading = false
     private var currentMemory: MemoryItem? = null
     private var currentTags: List<String> = emptyList()
@@ -59,8 +60,8 @@ class DetailActivity : AppCompatActivity() {
             ocrVisible = !ocrVisible
             binding.ocrText.visibility = if (ocrVisible) View.VISIBLE else View.GONE
         }
-        // "저장"은 별도 변경 없이도 항시 활성화. 클릭 시 미저장 메모/태그/카테고리를 일괄 반영한다.
-        binding.saveMemoButton.isEnabled = true
+        // 원격 처리 중에는 결과 URI가 반영될 때까지 저장으로 화면을 빠져나가지 못하게 한다.
+        updateSaveButtonState()
         binding.saveMemoButton.setOnClickListener {
             when (viewModel.save()) {
                 SaveResult.SAVED -> {
@@ -69,6 +70,8 @@ class DetailActivity : AppCompatActivity() {
                 }
                 SaveResult.NO_CATEGORY ->
                     Toast.makeText(this, "카테고리를 지정해주세요", Toast.LENGTH_SHORT).show()
+                SaveResult.PROCESSING ->
+                    Toast.makeText(this, "진행 중인 처리가 끝난 뒤 저장해 주세요.", Toast.LENGTH_SHORT).show()
             }
         }
         binding.favoriteDetailButton.setOnClickListener { viewModel.toggleFavorite() }
@@ -116,6 +119,7 @@ class DetailActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.geminiLoading.collect { loading ->
+                    geminiRequestLoading = loading
                     binding.geminiSuggestButton.isEnabled = !loading
                     binding.geminiSuggestButton.text =
                         if (loading) "추천 받는 중…" else "Gemini 메모 추천받기"
@@ -125,7 +129,7 @@ class DetailActivity : AppCompatActivity() {
                         if (loading) View.VISIBLE else View.GONE
                     binding.memoLoadingIndicator.visibility =
                         if (loading) View.VISIBLE else View.GONE
-                    binding.saveMemoButton.isEnabled = !loading
+                    updateSaveButtonState()
                 }
             }
         }
@@ -135,6 +139,7 @@ class DetailActivity : AppCompatActivity() {
                 viewModel.imageEnhancementLoading.collect { loading ->
                     imageEnhancementLoading = loading
                     renderImageEnhancementButton(currentMemory)
+                    updateSaveButtonState()
                 }
             }
         }
@@ -215,6 +220,10 @@ class DetailActivity : AppCompatActivity() {
             memory?.imageEnhancementStatus == ImageEnhancementState.FAILED -> "화질 업그레이드 다시 시도"
             else -> "화질 업그레이드"
         }
+    }
+
+    private fun updateSaveButtonState() {
+        binding.saveMemoButton.isEnabled = !geminiRequestLoading && !imageEnhancementLoading
     }
 
     private fun showImageEnhancementConsent() {
