@@ -80,12 +80,14 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="end|top"
                 android:layout_margin="8dp"
-                android:background="@drawable/bg_badge_primary"
+                android:background="@drawable/bg_badge_error"
                 android:maxLines="1"
                 android:textColor="@color/white"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                tools:text="완료" />
+                android:visibility="gone"
+                tools:text="오류"
+                tools:visibility="visible" />
 
             <ImageButton
                 android:id="@+id/favoriteButton"

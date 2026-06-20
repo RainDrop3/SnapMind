@@ -81,8 +81,12 @@ class MemoryGridAdapter(
                 DateUtils.MINUTE_IN_MILLIS,
             )
             tagText.text = item.tags.firstOrNull().orEmpty()
-            statusBadge.text = item.processingStatus.displayText()
-            statusBadge.setBackgroundResource(item.processingStatus.badgeBackground())
+            statusBadge.visibility = if (item.processingStatus == ProcessingStatus.ERROR) {
+                statusBadge.text = "오류"
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
             favoriteButton.setImageResource(actionMode.iconRes())
             favoriteButton.contentDescription = actionMode.contentDescription()
             ImageViewCompat.setImageTintList(
@@ -115,20 +119,6 @@ class MemoryGridAdapter(
                     .into(thumbImage)
             }
         }
-
-        private fun ProcessingStatus.displayText(): String =
-            when (this) {
-                ProcessingStatus.PROCESSING -> "처리중"
-                ProcessingStatus.DONE -> "완료"
-                ProcessingStatus.ERROR -> "오류"
-            }
-
-        private fun ProcessingStatus.badgeBackground(): Int =
-            when (this) {
-                ProcessingStatus.PROCESSING -> R.drawable.bg_badge_amber
-                ProcessingStatus.DONE -> R.drawable.bg_badge_primary
-                ProcessingStatus.ERROR -> R.drawable.bg_badge_error
-            }
 
         private fun MemoryCategory.thumbnailBackground(): Int =
             when (this) {

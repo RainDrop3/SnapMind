@@ -60,13 +60,10 @@ private fun LinkPreviewEntity.toDomain(): LinkPreview = LinkPreview(
 )
 
 fun MemoryItemEntity.composeProcessingStatus(): ProcessingStatus {
-    val anyFailed = ocrStatus == StandardProcessingStatus.FAILED ||
+    val anyCoreFailed = ocrStatus == StandardProcessingStatus.FAILED ||
         classificationStatus == StandardProcessingStatus.FAILED ||
-        taggingStatus == StandardProcessingStatus.FAILED ||
-        visionLabelStatus == OptionalRemoteProcessingStatus.FAILED ||
-        youtubeLinkStatus == OptionalRemoteProcessingStatus.FAILED ||
-        geminiMemoStatus == GeminiMemoStatus.FAILED
-    if (anyFailed) return ProcessingStatus.ERROR
+        taggingStatus == StandardProcessingStatus.FAILED
+    if (anyCoreFailed) return ProcessingStatus.ERROR
 
     val allDone = ocrStatus.isDone() &&
         classificationStatus.isDone() &&
@@ -81,12 +78,14 @@ private fun StandardProcessingStatus.isDone(): Boolean = this == StandardProcess
 
 private fun OptionalRemoteProcessingStatus.isDone(): Boolean =
     this == OptionalRemoteProcessingStatus.SUCCESS ||
-        this == OptionalRemoteProcessingStatus.SKIPPED
+        this == OptionalRemoteProcessingStatus.SKIPPED ||
+        this == OptionalRemoteProcessingStatus.FAILED
 
 private fun GeminiMemoStatus.isDone(): Boolean = this == GeminiMemoStatus.SUGGESTED ||
     this == GeminiMemoStatus.ACCEPTED ||
     this == GeminiMemoStatus.DISMISSED ||
-    this == GeminiMemoStatus.SKIPPED
+    this == GeminiMemoStatus.SKIPPED ||
+    this == GeminiMemoStatus.FAILED
 
 fun String?.toMemoryCategory(): MemoryCategory {
     if (this.isNullOrBlank()) return MemoryCategory.OTHERS
