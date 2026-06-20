@@ -63,11 +63,16 @@ class MemoryGridAdapter(
             root.setOnClickListener { onMemoryClick(item) }
             root.setOnLongClickListener { onMemoryLongClick(item) }
             favoriteButton.setOnClickListener { onActionClick(item) }
-            // 최대 2개 카테고리를 행을 구분해 표시한다.
-            categoryBadge.text = item.categories
+            // 최대 2개 카테고리를 각각 독립된 배지로 세로 표시한다.
+            val categories = item.categories
                 .take(MemoryCategory.MAX_PER_MEMORY)
-                .joinToString("\n") { it.displayName }
-                .ifBlank { MemoryCategory.OTHERS.displayName }
+                .ifEmpty { listOf(MemoryCategory.OTHERS) }
+            primaryCategoryBadge.text = categories.first().displayName
+            secondaryCategoryBadge.apply {
+                val secondaryCategory = categories.getOrNull(1)
+                text = secondaryCategory?.displayName.orEmpty()
+                visibility = if (secondaryCategory == null) View.GONE else View.VISIBLE
+            }
             memoText.text = item.memo
             memoText.visibility = if (item.memo.isBlank()) View.INVISIBLE else View.VISIBLE
             timeText.text = DateUtils.getRelativeTimeSpanString(

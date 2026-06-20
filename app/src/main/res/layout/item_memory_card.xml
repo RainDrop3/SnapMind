@@ -40,20 +40,39 @@
                 android:textStyle="bold"
                 tools:text="CODE" />
 
-            <TextView
-                android:id="@+id/categoryBadge"
+            <LinearLayout
+                android:id="@+id/categoryBadgeGroup"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="start|top"
                 android:layout_margin="8dp"
-                android:background="@drawable/bg_badge_soft"
-                android:gravity="center_horizontal"
-                android:lineSpacingExtra="1dp"
-                android:maxLines="2"
-                android:textColor="@color/snap_primary"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                tools:text="Chat\nFood" />
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/primaryCategoryBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_badge_soft"
+                    android:maxLines="1"
+                    android:textColor="@color/snap_primary"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    tools:text="Chat" />
+
+                <TextView
+                    android:id="@+id/secondaryCategoryBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_badge_soft"
+                    android:maxLines="1"
+                    android:textColor="@color/snap_primary"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    tools:text="Food"
+                    tools:visibility="visible" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/statusBadge"
