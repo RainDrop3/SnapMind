@@ -85,6 +85,21 @@ class ImageImporter @Inject constructor(
         )
     }
 
+    /**
+     * 가져오기 과정에서 생성했지만 DB에 연결되지 않은 앱 전용 복사본을 정리한다.
+     * filesDir/snapmind/images 밖의 파일은 절대 삭제하지 않는다.
+     */
+    suspend fun deleteOwnedCopy(targetUri: String): Boolean = withContext(dispatcherProvider.io) {
+        val uri = runCatching { targetUri.toUri() }.getOrNull() ?: return@withContext false
+        if (uri.scheme != "file") return@withContext false
+        val path = uri.path ?: return@withContext false
+        val ownedDir = File(context.filesDir, IMAGE_SUBDIR).canonicalFile
+        val target = runCatching { File(path).canonicalFile }.getOrNull() ?: return@withContext false
+        val isOwned = target.parentFile?.canonicalFile == ownedDir
+        if (!isOwned) return@withContext false
+        !target.exists() || target.delete()
+    }
+
     private fun resolveMimeType(sourceUri: Uri, explicit: String?): String? {
         val candidate = explicit ?: context.contentResolver.getType(sourceUri) ?: return null
         return candidate.lowercase()

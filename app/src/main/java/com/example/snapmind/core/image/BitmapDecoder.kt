@@ -22,7 +22,7 @@ object BitmapDecoder {
             contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
 
             if (opts.outWidth <= 0 || opts.outHeight <= 0) {
-                Log.w(TAG, "Cannot determine bounds for $uri")
+                Log.w(TAG, "Cannot determine image bounds")
                 return null
             }
 
@@ -33,10 +33,10 @@ object BitmapDecoder {
             // 2nd pass: fresh stream for actual decode.
             contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
         } catch (oom: OutOfMemoryError) {
-            Log.e(TAG, "OOM decoding $uri", oom)
+            Log.e(TAG, "OOM while decoding image", oom)
             null
         } catch (e: Exception) {
-            Log.e(TAG, "Error decoding $uri", e)
+            Log.e(TAG, "Error while decoding image", e)
             null
         }
     }
