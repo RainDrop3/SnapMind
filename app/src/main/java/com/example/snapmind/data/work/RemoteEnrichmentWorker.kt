@@ -2,13 +2,19 @@ package com.example.snapmind.data.work
 
 import android.content.Context
 import androidx.hilt.work.HiltWorker
+import androidx.work.BackoffPolicy
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.example.snapmind.core.link.UrlExtractor
 import com.example.snapmind.core.link.YoutubeLinkHelper
+import com.example.snapmind.core.result.AppError
 import com.example.snapmind.core.result.AppResult
 import com.example.snapmind.core.settings.AppPreferences
 import com.example.snapmind.core.settings.RemoteFeatureFlags
@@ -27,6 +33,7 @@ import com.example.snapmind.data.repository.MemoryAggregateBuilder
 import com.example.snapmind.data.repository.refreshFtsRow
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import java.util.concurrent.TimeUnit
 
 private const val LINK_ACCESS_FAILED_DESCRIPTION =
     "페이지 접근을 확인하지 못했습니다. URL 자동 인식이 실패했을 수 있어요."
@@ -58,7 +65,10 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
         // Gemini 메모 추천은 자동 실행하지 않고, 상세 화면 버튼(GeminiMemoSuggester)에서 온디맨드로만 호출한다.
         memoryItemDao.setGeminiMemoStatus(memoryId, GeminiMemoStatus.SKIPPED, now)
 
-        enrichLinkPreview(memoryId, flags)
+        val shouldRetry = enrichLinkPreview(memoryId, flags)
+        if (shouldRetry && runAttemptCount < MAX_REMOTE_RETRY_ATTEMPTS) {
+            return Result.retry()
+        }
         refreshFtsRow(memoryId, memoryItemDao, aggregateBuilder, memorySearchDao)
         enqueueAutoTagging(memoryId)
         return Result.success()
@@ -67,12 +77,12 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
     private suspend fun enrichLinkPreview(
         memoryId: Long,
         flags: RemoteFeatureFlags,
-    ) {
+    ): Boolean {
         val now = { System.currentTimeMillis() }
         if (!flags.linkPreviewEnabled) {
             linkPreviewDao.deleteByMemoryId(memoryId)
             memoryItemDao.setLinkPreviewStatus(memoryId, OptionalRemoteProcessingStatus.SKIPPED, now())
-            return
+            return false
         }
 
         val ocrText = ocrTextDao.getByMemoryId(memoryId)?.fullText.orEmpty()
@@ -80,11 +90,12 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
         if (url == null) {
             linkPreviewDao.deleteByMemoryId(memoryId)
             memoryItemDao.setLinkPreviewStatus(memoryId, OptionalRemoteProcessingStatus.SKIPPED, now())
-            return
+            return false
         }
 
         memoryItemDao.setLinkPreviewStatus(memoryId, OptionalRemoteProcessingStatus.RUNNING, now())
-        val safety = checkSafety(url, flags.safeBrowsingEnabled, flags.safeBrowsingApiKey)
+        val safetyResult = checkSafety(url, flags.safeBrowsingEnabled, flags.safeBrowsingApiKey)
+        val safety = safetyResult.safety
         val fallback = fallbackPreview(url)
         val enrichment = if (safety.status == LinkSafetyStatus.UNSAFE) {
             null
@@ -102,19 +113,23 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
 
         linkPreviewDao.upsert(preview.toEntity(memoryId, now()))
         memoryItemDao.setLinkPreviewStatus(memoryId, OptionalRemoteProcessingStatus.SUCCESS, now())
+        return safetyResult.retryableFailure || enrichment?.retryableFailure == true
     }
 
     private suspend fun checkSafety(
         url: String,
         enabled: Boolean,
         apiKey: String,
-    ): RemoteLinkSafety {
+    ): SafetyResult {
         if (!enabled || apiKey.isBlank()) {
-            return RemoteLinkSafety(status = LinkSafetyStatus.UNCHECKED)
+            return SafetyResult(RemoteLinkSafety(status = LinkSafetyStatus.UNCHECKED))
         }
         return when (val result = remoteRepository.checkLinkSafety(url, apiKey)) {
-            is AppResult.Success -> result.data
-            is AppResult.Error -> RemoteLinkSafety(status = LinkSafetyStatus.CHECK_FAILED)
+            is AppResult.Success -> SafetyResult(result.data)
+            is AppResult.Error -> SafetyResult(
+                safety = RemoteLinkSafety(status = LinkSafetyStatus.CHECK_FAILED),
+                retryableFailure = result.error.isRetryableRemoteFailure(),
+            )
         }
     }
 
@@ -145,7 +160,11 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
                 preview = result.data.withImageFallback(url).withOpenUrlFallback(url),
                 accessFailed = false,
             )
-            is AppResult.Error -> PreviewResult(preview = null, accessFailed = true)
+            is AppResult.Error -> PreviewResult(
+                preview = null,
+                accessFailed = true,
+                retryableFailure = result.error.isRetryableRemoteFailure(),
+            )
         }
     }
 
@@ -230,20 +249,57 @@ class RemoteEnrichmentWorker @AssistedInject constructor(
     private data class PreviewResult(
         val preview: RemoteLinkPreview?,
         val accessFailed: Boolean,
+        val retryableFailure: Boolean = false,
+    )
+
+    private data class SafetyResult(
+        val safety: RemoteLinkSafety,
+        val retryableFailure: Boolean = false,
     )
 
     private fun enqueueAutoTagging(memoryId: Long) {
-        WorkManager.getInstance(applicationContext).enqueue(
-            OneTimeWorkRequestBuilder<AutoTaggingWorker>()
-                .setInputData(workDataOf(LocalMemoryProcessingWorker.KEY_MEMORY_ID to memoryId))
-                .build(),
+        val request = OneTimeWorkRequestBuilder<AutoTaggingWorker>()
+            .setInputData(workDataOf(LocalMemoryProcessingWorker.KEY_MEMORY_ID to memoryId))
+            .build()
+        WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+            "snapmind-tagging-$memoryId",
+            ExistingWorkPolicy.KEEP,
+            request,
         )
     }
 
-    private companion object {
+    companion object {
         const val MAX_YOUTUBE_OCR_CORRECTION_REQUESTS = 1
         const val YOUTUBE_OCR_CORRECTION_BATCH_SIZE = 24
         const val MAX_YOUTUBE_OCR_CORRECTION_CANDIDATES =
             MAX_YOUTUBE_OCR_CORRECTION_REQUESTS * YOUTUBE_OCR_CORRECTION_BATCH_SIZE
+        private const val MAX_REMOTE_RETRY_ATTEMPTS = 2
+        private const val REMOTE_BACKOFF_SECONDS = 10L
+
+        fun uniqueWorkName(memoryId: Long): String = "snapmind-remote-$memoryId"
+
+        fun request(memoryId: Long, requiresNetwork: Boolean): OneTimeWorkRequest {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(
+                    if (requiresNetwork) NetworkType.CONNECTED else NetworkType.NOT_REQUIRED,
+                )
+                .build()
+            return OneTimeWorkRequestBuilder<RemoteEnrichmentWorker>()
+                .setInputData(workDataOf(LocalMemoryProcessingWorker.KEY_MEMORY_ID to memoryId))
+                .setConstraints(constraints)
+                .setBackoffCriteria(
+                    BackoffPolicy.EXPONENTIAL,
+                    REMOTE_BACKOFF_SECONDS,
+                    TimeUnit.SECONDS,
+                )
+                .build()
+        }
     }
+}
+
+internal fun AppError.isRetryableRemoteFailure(): Boolean = when (this) {
+    AppError.NetworkUnavailable,
+    AppError.ApiTimeout -> true
+    is AppError.Http -> code in 500..599
+    else -> false
 }

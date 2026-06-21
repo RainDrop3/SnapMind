@@ -2,6 +2,8 @@ package com.example.snapmind.data.repository
 
 import android.content.Context
 import android.net.Uri
+import androidx.room.withTransaction
+import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
@@ -18,6 +20,7 @@ import com.example.snapmind.data.local.dao.OcrTextDao
 import com.example.snapmind.data.local.dao.TagDao
 import com.example.snapmind.data.local.dao.LinkPreviewDao
 import com.example.snapmind.data.local.dao.ClassificationDao
+import com.example.snapmind.data.local.SnapMindDatabase
 import com.example.snapmind.data.local.entity.MemoEntity
 import com.example.snapmind.data.local.entity.MemoryItemEntity
 import com.example.snapmind.data.local.entity.TagAssignedBy
@@ -67,6 +70,7 @@ class RoomMemoryRepository @Inject constructor(
     private val classificationDao: ClassificationDao,
     private val linkPreviewDao: LinkPreviewDao,
     private val memorySearchDao: MemorySearchDao,
+    private val database: SnapMindDatabase,
     private val imageImporter: ImageImporter,
     private val tagAssigner: TagAssigner,
     private val pdfExporter: PdfExporter,
@@ -189,41 +193,56 @@ class RoomMemoryRepository @Inject constructor(
 
         val existing = imported.contentHash?.let { memoryItemDao.findByContentHash(it) }
         if (existing != null) {
-            applyImportedMetadata(existing.id, initialMemo, initialTags)
-            val updated = memoryItemDao.getById(existing.id) ?: existing
-            val aggregate = buildAggregate(updated)
-            return AppResult.Success(aggregate.toDomain())
+            // ImageImporter가 중복 판정 전에 만든 새 복사본은 DB에 연결되지 않으므로 즉시 정리한다.
+            imageImporter.deleteOwnedCopy(imported.targetUri)
+            return runCatching {
+                database.withTransaction {
+                    applyImportedMetadata(existing.id, initialMemo, initialTags)
+                    val updated = memoryItemDao.getById(existing.id) ?: existing
+                    buildAggregate(updated).toDomain()
+                }
+            }.fold(
+                onSuccess = { AppResult.Success(it) },
+                onFailure = { AppResult.Error(AppError.Unknown(it.message.orEmpty())) },
+            )
         }
 
         val now = System.currentTimeMillis()
-        val entity = MemoryItemEntity(
-            imageUri = imported.targetUri,
-            sourceUri = imported.sourceUri,
-            mimeType = imported.mimeType,
-            contentHash = imported.contentHash,
-            createdAt = now,
-            updatedAt = now,
-        )
-        val memoryId = memoryItemDao.insert(entity)
-        if (memoryId <= 0L) {
-            return AppResult.Error(AppError.Unknown("memory insert failed"))
+        val memoryId = runCatching {
+            database.withTransaction {
+                val entity = MemoryItemEntity(
+                    imageUri = imported.targetUri,
+                    sourceUri = imported.sourceUri,
+                    mimeType = imported.mimeType,
+                    contentHash = imported.contentHash,
+                    createdAt = now,
+                    updatedAt = now,
+                )
+                val insertedId = memoryItemDao.insert(entity)
+                check(insertedId > 0L) { "memory insert failed" }
+
+                memoDao.upsert(
+                    MemoEntity(
+                        memoryId = insertedId,
+                        body = initialMemo.trim(),
+                        geminiSuggestion = null,
+                        createdAt = now,
+                        updatedAt = now,
+                    ),
+                )
+
+                // 자동 태그는 분석 후 AutoTaggingWorker가 모델 top-1 결과 하나만 부여한다.
+                // (가져오기 시점의 #Imported 시드 태그는 더 이상 붙이지 않는다.)
+                assignUserTags(insertedId, initialTags, now)
+                refreshFts(insertedId)
+                insertedId
+            }
+        }.getOrElse { error ->
+            // 트랜잭션은 롤백되므로 DB에 연결되지 않은 앱 전용 복사본도 함께 정리한다.
+            imageImporter.deleteOwnedCopy(imported.targetUri)
+            return AppResult.Error(AppError.Unknown(error.message.orEmpty()))
         }
 
-        memoDao.upsert(
-            MemoEntity(
-                memoryId = memoryId,
-                body = initialMemo.trim().ifBlank { DEFAULT_MEMO_BODY },
-                geminiSuggestion = null,
-                createdAt = now,
-                updatedAt = now,
-            ),
-        )
-
-        // 자동 태그는 분석 후 AutoTaggingWorker가 모델 top-1 결과 하나만 부여한다.
-        // (가져오기 시점의 #Imported 시드 태그는 더 이상 붙이지 않는다.)
-        assignUserTags(memoryId, initialTags, now)
-
-        refreshFts(memoryId)
         enqueueLocalProcessing(memoryId)
 
         val stored = memoryItemDao.getById(memoryId)
@@ -235,7 +254,11 @@ class RoomMemoryRepository @Inject constructor(
         val request = OneTimeWorkRequestBuilder<LocalMemoryProcessingWorker>()
             .setInputData(workDataOf(LocalMemoryProcessingWorker.KEY_MEMORY_ID to memoryId))
             .build()
-        WorkManager.getInstance(context).enqueue(request)
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            LocalMemoryProcessingWorker.uniqueWorkName(memoryId),
+            ExistingWorkPolicy.KEEP,
+            request,
+        )
     }
 
     private suspend fun applyImportedMetadata(
@@ -642,7 +665,6 @@ class RoomMemoryRepository @Inject constructor(
 
     companion object {
         private const val TAG = "RoomMemoryRepository"
-        private const val DEFAULT_MEMO_BODY = "새 이미지 분석을 준비 중입니다."
         private const val USER_CATEGORY_VERSION = "user"
 
         @Suppress("unused")

@@ -4,13 +4,14 @@ import android.content.Context
 import androidx.core.net.toUri
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
-import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.ExistingWorkPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import androidx.work.workDataOf
 import com.example.snapmind.core.ai.ImageClassifier
 import com.example.snapmind.core.ai.ModelUnavailableException
 import com.example.snapmind.core.ai.OcrExtractor
+import com.example.snapmind.core.link.UrlExtractor
+import com.example.snapmind.core.settings.AppPreferences
 import com.example.snapmind.data.local.dao.ClassificationDao
 import com.example.snapmind.data.local.dao.MemoryItemDao
 import com.example.snapmind.data.local.dao.MemorySearchDao
@@ -34,6 +35,8 @@ class LocalMemoryProcessingWorker @AssistedInject constructor(
     private val ocrExtractor: OcrExtractor,
     private val imageClassifier: ImageClassifier,
     private val aggregateBuilder: MemoryAggregateBuilder,
+    private val prefs: AppPreferences,
+    private val urlExtractor: UrlExtractor,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -87,15 +90,19 @@ class LocalMemoryProcessingWorker @AssistedInject constructor(
 
         refreshFtsRow(memoryId, memoryItemDao, aggregateBuilder, memorySearchDao)
 
-        WorkManager.getInstance(applicationContext).enqueue(
-            OneTimeWorkRequestBuilder<RemoteEnrichmentWorker>()
-                .setInputData(workDataOf(KEY_MEMORY_ID to memoryId))
-                .build(),
+        val ocrText = ocrTextDao.getByMemoryId(memoryId)?.fullText.orEmpty()
+        val requiresNetwork = prefs.current().linkPreviewEnabled && urlExtractor.firstUrl(ocrText) != null
+        WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+            RemoteEnrichmentWorker.uniqueWorkName(memoryId),
+            ExistingWorkPolicy.KEEP,
+            RemoteEnrichmentWorker.request(memoryId, requiresNetwork),
         )
         return Result.success()
     }
 
     companion object {
         const val KEY_MEMORY_ID = "memoryId"
+
+        fun uniqueWorkName(memoryId: Long): String = "snapmind-local-$memoryId"
     }
 }

@@ -63,20 +63,30 @@ class MemoryGridAdapter(
             root.setOnClickListener { onMemoryClick(item) }
             root.setOnLongClickListener { onMemoryLongClick(item) }
             favoriteButton.setOnClickListener { onActionClick(item) }
-            // 최대 2개 카테고리를 행을 구분해 표시한다.
-            categoryBadge.text = item.categories
+            // 최대 2개 카테고리를 각각 독립된 배지로 세로 표시한다.
+            val categories = item.categories
                 .take(MemoryCategory.MAX_PER_MEMORY)
-                .joinToString("\n") { it.displayName }
-                .ifBlank { MemoryCategory.OTHERS.displayName }
-            memoText.text = item.memo.ifBlank { "메모가 아직 없어요. 상세 화면에서 저장 이유를 남겨보세요." }
+                .ifEmpty { listOf(MemoryCategory.OTHERS) }
+            primaryCategoryBadge.text = categories.first().displayName
+            secondaryCategoryBadge.apply {
+                val secondaryCategory = categories.getOrNull(1)
+                text = secondaryCategory?.displayName.orEmpty()
+                visibility = if (secondaryCategory == null) View.GONE else View.VISIBLE
+            }
+            memoText.text = item.memo
+            memoText.visibility = if (item.memo.isBlank()) View.INVISIBLE else View.VISIBLE
             timeText.text = DateUtils.getRelativeTimeSpanString(
                 item.createdAtMillis,
                 System.currentTimeMillis(),
                 DateUtils.MINUTE_IN_MILLIS,
             )
             tagText.text = item.tags.firstOrNull().orEmpty()
-            statusBadge.text = item.processingStatus.displayText()
-            statusBadge.setBackgroundResource(item.processingStatus.badgeBackground())
+            statusBadge.visibility = if (item.processingStatus == ProcessingStatus.ERROR) {
+                statusBadge.text = "오류"
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
             favoriteButton.setImageResource(actionMode.iconRes())
             favoriteButton.contentDescription = actionMode.contentDescription()
             ImageViewCompat.setImageTintList(
@@ -109,20 +119,6 @@ class MemoryGridAdapter(
                     .into(thumbImage)
             }
         }
-
-        private fun ProcessingStatus.displayText(): String =
-            when (this) {
-                ProcessingStatus.PROCESSING -> "처리중"
-                ProcessingStatus.DONE -> "완료"
-                ProcessingStatus.ERROR -> "오류"
-            }
-
-        private fun ProcessingStatus.badgeBackground(): Int =
-            when (this) {
-                ProcessingStatus.PROCESSING -> R.drawable.bg_badge_amber
-                ProcessingStatus.DONE -> R.drawable.bg_badge_primary
-                ProcessingStatus.ERROR -> R.drawable.bg_badge_error
-            }
 
         private fun MemoryCategory.thumbnailBackground(): Int =
             when (this) {

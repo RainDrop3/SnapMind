@@ -92,7 +92,7 @@ class ImageClassifier @Inject constructor(
 
                 ClassificationResult(predictions = predictions, modelVersion = MODEL_VERSION)
             }.onFailure { error ->
-                Log.e(TAG, "Classification failed for $imageUri", error)
+                Log.e(TAG, "Image classification failed", error)
             }
         }
 

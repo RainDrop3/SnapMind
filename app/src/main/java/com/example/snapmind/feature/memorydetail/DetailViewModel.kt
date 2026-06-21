@@ -33,8 +33,8 @@ data class DetailUiState(
     val isReady: Boolean get() = memory != null && !gone
 }
 
-/** "저장" 결과: 성공 또는 카테고리 미지정으로 인한 차단. */
-enum class SaveResult { SAVED, NO_CATEGORY }
+/** "저장" 결과: 성공 또는 저장을 진행할 수 없는 사유. */
+enum class SaveResult { SAVED, NO_CATEGORY, PROCESSING }
 
 @HiltViewModel
 class DetailViewModel @Inject constructor(
@@ -150,11 +150,18 @@ class DetailViewModel @Inject constructor(
      * 카테고리가 하나도 없으면 저장하지 않고 [SaveResult.NO_CATEGORY] 를 반환한다.
      */
     fun save(): SaveResult {
-        // 추천 요청 중에는 저장 금지(버튼 비활성화 우회 방어).
-        if (geminiLoading.value) return SaveResult.NO_CATEGORY
         val id = memoryIdFlow.value
         val memory = uiState.value.memory ?: return SaveResult.NO_CATEGORY
         if (id <= 0L) return SaveResult.NO_CATEGORY
+
+        // 원격 처리가 끝나기 전에 화면을 빠져나가 원본 이미지가 다시 보이는 것을 막는다.
+        // UI의 StateFlow 반영보다 빠르게 저장을 누르는 경우도 막도록 Repository 원본 상태를 확인한다.
+        if (
+            id in repository.geminiInProgress.value ||
+            id in repository.imageEnhancementInProgress.value
+        ) {
+            return SaveResult.PROCESSING
+        }
 
         // 카테고리는 최소 1개 필수.
         if (effectiveCategories().isEmpty()) return SaveResult.NO_CATEGORY
